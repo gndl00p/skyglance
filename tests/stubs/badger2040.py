@@ -8,6 +8,14 @@ WIDTH = 296
 HEIGHT = 128
 
 
+def woken_by_button():
+    return False
+
+
+def pressed_to_wake(btn):
+    return False
+
+
 class Badger2040:
     def __init__(self):
         self._pressed = set()
