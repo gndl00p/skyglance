@@ -1,83 +1,48 @@
 from screens.common import BLACK, HEIGHT, WIDTH, clear_white
 
 
-def _format_time(iso):
-    if "T" not in iso:
-        return iso
-    t = iso.split("T", 1)[1]
-    hhmm = t[:5]
-    h = int(hhmm[:2])
-    m = hhmm[3:5]
-    ampm = "a" if h < 12 else "p"
-    h12 = h % 12 or 12
-    return f"{h12}:{m}{ampm}"
-
-
-def _draw_weather(d, tile, x, y, w, h):
-    if tile is None:
-        d.text("weather: ?", x + 4, y + 4)
-        return
-    t = tile.get("temp_f")
-    s = tile.get("summary", "")
-    temp = f"{t}°F" if t is not None else "--°F"
-    d.text(temp, x + 4, y + 4, scale=1.4)
-    d.text(s, x + 4, y + 28, scale=1.0)
-    if tile.get("stale"):
-        d.text("(stale)", x + 4, y + 46, scale=0.8)
-
-
-def _draw_calendar(d, tile, x, y, w, h):
-    d.text("Next:", x + 4, y + 4, scale=1.0)
-    if tile is None or tile.get("next") is None:
-        d.text("— no events —", x + 4, y + 22, scale=1.0)
-        return
-    nxt = tile["next"]
-    when = _format_time(nxt["start"])
-    d.text(when, x + 4, y + 22, scale=1.2)
-    title = nxt["title"]
-    if len(title) > 18:
-        title = title[:17] + "…"
-    d.text(title, x + 4, y + 44, scale=1.0)
-    if tile.get("stale"):
-        d.text("(stale)", x + 4, y + 56, scale=0.8)
-
-
-def _draw_desk(d, tile, x, y, w, h):
-    n = tile.get("open_tickets") if tile else None
-    label = f"{n}" if n is not None else "?"
-    d.text(f"Desk: {label}", x + 4, y + 4, scale=1.2)
-    d.text("tickets open", x + 4, y + 28, scale=0.9)
-    if tile and tile.get("stale"):
-        d.text("(stale)", x + 4, y + 46, scale=0.8)
-
-
-def _draw_crm(d, tile, x, y, w, h):
-    n = tile.get("tasks_due_today") if tile else None
-    label = f"{n}" if n is not None else "?"
-    d.text(f"CRM: {label}", x + 4, y + 4, scale=1.2)
-    d.text("tasks today", x + 4, y + 28, scale=0.9)
-    if tile and tile.get("stale"):
-        d.text("(stale)", x + 4, y + 46, scale=0.8)
+def _weather(payload):
+    return (payload or {}).get("weather") or {}
 
 
 def render(display, payload, stale_marker):
     clear_white(display)
     display.set_pen(BLACK)
+
+    w = _weather(payload)
+    temp = w.get("temp_f")
+    cat = w.get("flight_category") or "--"
+    station = w.get("station") or "----"
+    wind = w.get("wind") or "--"
+    sky = w.get("summary") or "--"
+    vis = w.get("visibility_sm")
+
     display.set_font("bitmap8")
 
-    mid_x = WIDTH // 2
-    mid_y = HEIGHT // 2
-    display.line(0, mid_y, WIDTH, mid_y)
-    display.line(mid_x, 0, mid_x, HEIGHT)
+    # Top-left: big temperature.
+    temp_str = f"{int(temp)}F" if temp is not None else "--F"
+    display.text(temp_str, 8, 10, scale=5)
 
-    if payload is None:
-        payload = {}
-    _draw_weather(display, payload.get("weather"), 0, 0, mid_x, mid_y)
-    _draw_calendar(display, payload.get("calendar"), mid_x, 0, WIDTH - mid_x, mid_y)
-    _draw_desk(display, payload.get("desk"), 0, mid_y, mid_x, HEIGHT - mid_y)
-    _draw_crm(display, payload.get("crm"), mid_x, mid_y, WIDTH - mid_x, HEIGHT - mid_y)
+    # Top-right: big flight category.
+    cat_x = WIDTH - (len(cat) * 30) - 8
+    display.text(cat, cat_x, 10, scale=5)
+
+    # Divider.
+    display.line(0, 68, WIDTH, 68)
+
+    # Middle: station + visibility.
+    line1 = station
+    if vis is not None:
+        line1 += f"  vis {int(vis)}SM" if vis == int(vis) else f"  vis {vis}SM"
+    display.text(line1, 8, 76, scale=2)
+
+    # Wind line.
+    display.text(wind, 8, 98, scale=2)
+
+    # Clouds line.
+    display.text(sky, 8, 116, scale=2)
 
     if stale_marker:
-        display.text(stale_marker, WIDTH - 64, HEIGHT - 10, scale=0.8)
+        display.text(stale_marker, WIDTH - 56, HEIGHT - 10, scale=1)
 
     display.update()

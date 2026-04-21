@@ -50,7 +50,7 @@ def _fake_cal_service(items):
 @freeze_time("2026-04-21T10:00:00-05:00")
 def test_endpoint_happy_path(fixtures_dir):
     token = json.loads((fixtures_dir / "zoho_oauth_token.json").read_text())
-    weather_payload = json.loads((fixtures_dir / "open_meteo_sunny.json").read_text())
+    metar_payload = json.loads((fixtures_dir / "metar_klbb.json").read_text())
     desk_count = json.loads((fixtures_dir / "zoho_desk_count.json").read_text())
     crm_payload = json.loads((fixtures_dir / "zoho_crm_coql.json").read_text())
     cal_items = [{"start": {"dateTime": "2026-04-21T15:00:00-05:00"}, "summary": "Standup"}]
@@ -63,8 +63,8 @@ def test_endpoint_happy_path(fixtures_dir):
         m.post("https://accounts.zoho.com/oauth/v2/token").mock(
             return_value=httpx.Response(200, json=token)
         )
-        m.get("https://api.open-meteo.com/v1/forecast").mock(
-            return_value=httpx.Response(200, json=weather_payload)
+        m.get("https://aviationweather.gov/api/data/metar").mock(
+            return_value=httpx.Response(200, json=metar_payload)
         )
         m.get("https://desk.zoho.com/api/v1/ticketsCount").mock(
             return_value=httpx.Response(200, json=desk_count)
@@ -77,8 +77,9 @@ def test_endpoint_happy_path(fixtures_dir):
 
     assert r.status_code == 200
     body = r.json()
-    assert body["weather"]["temp_f"] == 72
-    assert body["weather"]["icon"] == "sun"
+    assert body["weather"]["temp_f"] == 81
+    assert body["weather"]["station"] == "KLBB"
+    assert body["weather"]["flight_category"] == "VFR"
     assert body["weather"]["stale"] is False
     assert body["calendar"]["next"]["title"] == "Standup"
     assert body["desk"]["open_tickets"] == 4
@@ -94,7 +95,7 @@ def test_endpoint_requires_token():
 
 def test_endpoint_tile_stale_on_partial_failure(fixtures_dir):
     token = json.loads((fixtures_dir / "zoho_oauth_token.json").read_text())
-    weather_payload = json.loads((fixtures_dir / "open_meteo_sunny.json").read_text())
+    metar_payload = json.loads((fixtures_dir / "metar_klbb.json").read_text())
     desk_count = json.loads((fixtures_dir / "zoho_desk_count.json").read_text())
 
     app = app_module.build_app()
@@ -105,8 +106,8 @@ def test_endpoint_tile_stale_on_partial_failure(fixtures_dir):
         m.post("https://accounts.zoho.com/oauth/v2/token").mock(
             return_value=httpx.Response(200, json=token)
         )
-        m.get("https://api.open-meteo.com/v1/forecast").mock(
-            return_value=httpx.Response(200, json=weather_payload)
+        m.get("https://aviationweather.gov/api/data/metar").mock(
+            return_value=httpx.Response(200, json=metar_payload)
         )
         m.get("https://desk.zoho.com/api/v1/ticketsCount").mock(
             return_value=httpx.Response(200, json=desk_count)

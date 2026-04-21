@@ -28,11 +28,14 @@ else
   $MP cp "$HERE/config.py" :config.py
 fi
 
-if [ ! -f "$HERE/state.json" ] || [ "$(cat "$HERE/state.json")" = "{}" ]; then
-  $MP exec 'open("/state.json","w").write("{}")'
-else
-  $MP cp "$HERE/state.json" :state.json
-fi
+# Only create /state.json on first flash — don't clobber persisted mode+last_data.
+$MP exec 'import os
+try:
+    os.stat("/state.json")
+    print("state.json exists, leaving alone")
+except OSError:
+    open("/state.json","w").write("{}")
+    print("state.json created")'
 
 echo "Done. Soft-reset:"
 $MP soft-reset

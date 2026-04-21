@@ -7,8 +7,9 @@ class Settings(BaseSettings):
 
     badge_token: str = Field(..., alias="BADGE_TOKEN")
 
-    weather_latitude: float = Field(..., alias="WEATHER_LATITUDE")
-    weather_longitude: float = Field(..., alias="WEATHER_LONGITUDE")
+    weather_latitude: float = Field(0.0, alias="WEATHER_LATITUDE")
+    weather_longitude: float = Field(0.0, alias="WEATHER_LONGITUDE")
+    metar_station: str = Field("KLBB", alias="METAR_STATION")
 
     google_service_account_json: str = Field(..., alias="GOOGLE_SERVICE_ACCOUNT_JSON")
     google_calendar_id: str = Field(..., alias="GOOGLE_CALENDAR_ID")
