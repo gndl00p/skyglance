@@ -1,6 +1,6 @@
 import time
 
-from state import load, save
+from badge_state import load, save
 
 
 class LongPressDetector:

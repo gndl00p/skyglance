@@ -8,7 +8,7 @@ WIDTH = 296
 HEIGHT = 128
 
 
-class Badger2040W:
+class Badger2040:
     def __init__(self):
         self._pressed = set()
 

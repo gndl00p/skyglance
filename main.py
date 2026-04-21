@@ -1,15 +1,15 @@
 try:
-    import badger2040w
+    import badger2040
 except ImportError:
-    badger2040w = None
+    badger2040 = None
 
 from modes.badge import BadgeMode
 from modes.desk import DeskMode
-from state import load as load_state
+from badge_state import load as load_state
 
 
 def _build_display():
-    return badger2040w.Badger2040W()
+    return badger2040.Badger2040()
 
 
 def _load_config():

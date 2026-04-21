@@ -6,8 +6,8 @@ except ImportError:
 
 from desk.fetcher import fetch
 from desk.render import render
-from state import load as load_state
-from state import save as save_state
+from badge_state import load as load_state
+from badge_state import save as save_state
 
 
 def deepsleep_ms(ms):

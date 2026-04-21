@@ -14,7 +14,7 @@ $MP mkdir :desk || true
 $MP mkdir :assets || true
 
 $MP cp "$HERE/main.py" :main.py
-$MP cp "$HERE/state.py" :state.py
+$MP cp "$HERE/badge_state.py" :badge_state.py
 $MP cp "$HERE/mode_switch.py" :mode_switch.py
 
 for f in "$HERE/modes"/*.py; do $MP cp "$f" ":modes/$(basename "$f")"; done
