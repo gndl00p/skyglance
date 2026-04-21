@@ -24,24 +24,26 @@ def test_output_byte_count_matches_packed_size(tmp_path):
     assert out.stat().st_size == 128 * 128 // 8
 
 
-def test_output_is_packed_msb_first(tmp_path):
+def test_all_black_produces_all_ones(tmp_path):
+    # Pimoroni image() draws set bits with current pen, so an all-black source
+    # should yield 0xFF bytes (every pixel becomes a drawn-black pixel).
     black = Image.new("L", (32, 8), color=0)
     src = tmp_path / "black.png"
     black.save(src)
     out = tmp_path / "out.bin"
     convert(str(src), str(out), width=32, height=8)
     data = out.read_bytes()
-    assert data == b"\x00" * 32
+    assert data == b"\xff" * 32
 
 
-def test_all_white_produces_all_ones(tmp_path):
+def test_all_white_produces_all_zeros(tmp_path):
     white = Image.new("L", (32, 8), color=255)
     src = tmp_path / "white.png"
     white.save(src)
     out = tmp_path / "out.bin"
     convert(str(src), str(out), width=32, height=8)
     data = out.read_bytes()
-    assert data == b"\xff" * 32
+    assert data == b"\x00" * 32
 
 
 def test_resize_to_target_dims(tmp_path):

@@ -25,7 +25,10 @@ def convert(src_path: str, out_path: str, width: int, height: int) -> None:
     img = img.resize((width, height), Image.LANCZOS)
     img = img.convert("1", dither=Image.FLOYDSTEINBERG)
     arr = np.array(img, dtype=np.uint8)
-    bits = (arr > 0).astype(np.uint8)
+    # Pimoroni picographics image() draws bit=1 pixels using the current pen
+    # (black by default), so black source pixels must map to 1 and white to 0
+    # — the inverse of the PIL "1" mode convention where 255 means white.
+    bits = (arr == 0).astype(np.uint8)
     data = _pack_bits(bits)
     Path(out_path).write_bytes(data)
 
