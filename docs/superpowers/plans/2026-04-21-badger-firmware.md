@@ -163,11 +163,10 @@ Run:
 ```bash
 cd ~/code/badger
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
-pytest tests -v
+.venv/bin/pip install pytest==8.3.3 Pillow==11.0.0 numpy==2.1.3
+.venv/bin/pytest tests -v
 ```
-Expected: `no tests ran` (exit 5). Confirms pytest discovery works.
+Expected: `no tests ran in 0.00s`, exit 0. `pyproject.toml` is auto-detected by pytest and supplies `testpaths` / `pythonpath`. The `optional-dependencies` block is documentation of pinned versions; an editable install (`pip install -e '.[dev]'`) is not used because the project has no `[build-system]` table.
 
 - [ ] **Step 8: Commit**
 
