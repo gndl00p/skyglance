@@ -1,0 +1,13 @@
+{
+  "latitude": 30.27,
+  "longitude": -97.74,
+  "current": {
+    "time": "2026-04-21T15:00",
+    "temperature_2m": 72.4,
+    "weather_code": 1
+  },
+  "current_units": {
+    "temperature_2m": "°F",
+    "weather_code": "wmo code"
+  }
+}
