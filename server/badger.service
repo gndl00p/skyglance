@@ -1,0 +1,15 @@
+[Unit]
+Description=Badger 2040 W aggregator service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/code/badger
+EnvironmentFile=%h/code/badger/server/.env
+ExecStart=%h/code/badger/server/.venv/bin/uvicorn server.app:app --host 127.0.0.1 --port 8088
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
