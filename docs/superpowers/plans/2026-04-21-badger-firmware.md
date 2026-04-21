@@ -1792,6 +1792,9 @@ def test_detector_only_fires_once_per_press():
     d.press("B")
     detector = mode_switch.LongPressDetector(d, button="B", threshold_s=2.0, now=clock)
 
+    # First poll records the press start at t=0; threshold hasn't elapsed yet.
+    clock.t = 0.0
+    assert detector.poll() is False
     clock.t = 2.5
     assert detector.poll() is True
     clock.t = 3.0
