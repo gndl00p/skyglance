@@ -31,6 +31,11 @@ def render(display, weather, stale_marker=None):
     cat_x = WIDTH - (len(cat) * 30) - 8
     display.text(cat, cat_x, 10, scale=5)
 
+    if updated is not None:
+        stamp = "last updated {0}Z".format(updated)
+        stamp_x = WIDTH - (len(stamp) * 6) - 6
+        display.text(stamp, stamp_x, 54, scale=1)
+
     display.line(0, 64, WIDTH, 64)
 
     line1 = station
@@ -39,8 +44,6 @@ def render(display, weather, stale_marker=None):
             line1 += "  vis {0}SM".format(int(vis))
         else:
             line1 += "  vis {0}SM".format(vis)
-    if updated is not None:
-        line1 += "  {0}Z".format(updated)
     display.text(line1, 8, 72, scale=2)
 
     display.text(wind, 8, 90, scale=2)

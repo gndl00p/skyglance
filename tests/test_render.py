@@ -40,13 +40,11 @@ def test_renders_visibility():
     assert "10SM" in " ".join(d.texts())
 
 
-def test_renders_updated_zulu_on_station_line():
+def test_renders_last_updated_stamp():
     d = FakeDisplay()
     render(d, _WEATHER)
-    # Timestamp lives on the station line now (the big cat obscures the top-right corner).
-    station_lines = [args[0] for name, args in d.calls if name == "text" and "KLBB" in args[0]]
-    assert station_lines
-    assert "22:00Z" in station_lines[0]
+    texts = [args[0] for name, args in d.calls if name == "text"]
+    assert any("last updated 22:00Z" in t for t in texts)
 
 
 def test_stale_marker_rendered():
