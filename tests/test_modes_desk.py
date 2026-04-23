@@ -27,8 +27,6 @@ def test_refresh_cycle_persists_and_renders(monkeypatch):
     monkeypatch.setattr(desk_mod, "save_state", lambda p, s: save_calls.append((p, s)))
     load_calls = []
     monkeypatch.setattr(desk_mod, "load_state", lambda p: load_calls.append(p) or {"mode": "desk", "last_data": None})
-    sleeps = []
-    monkeypatch.setattr(desk_mod, "deepsleep_ms", lambda ms: sleeps.append(ms))
 
     controller = desk_mod.DeskMode(d, _cfg(), state_path="/state.json")
     controller.cycle()
@@ -37,7 +35,6 @@ def test_refresh_cycle_persists_and_renders(monkeypatch):
     assert "72" in texts
     assert save_calls, "state.save not called"
     assert save_calls[0][1]["last_data"] == payload
-    assert sleeps == [15 * 60 * 1000]
 
 
 def test_offline_uses_last_data(monkeypatch):
@@ -50,7 +47,6 @@ def test_offline_uses_last_data(monkeypatch):
     monkeypatch.setattr(desk_mod, "load_state", lambda p: {"mode": "desk", "last_data": last})
     monkeypatch.setattr(desk_mod, "fetch", lambda cfg, ld: (ld, "offline"))
     monkeypatch.setattr(desk_mod, "save_state", lambda p, s: None)
-    monkeypatch.setattr(desk_mod, "deepsleep_ms", lambda ms: None)
 
     controller = desk_mod.DeskMode(d, _cfg(), state_path="/state.json")
     controller.cycle()
@@ -71,7 +67,6 @@ def test_button_a_forces_refresh(monkeypatch):
     monkeypatch.setattr(desk_mod, "load_state", lambda p: {"mode": "desk", "last_data": None})
     monkeypatch.setattr(desk_mod, "fetch", fake_fetch)
     monkeypatch.setattr(desk_mod, "save_state", lambda p, s: None)
-    monkeypatch.setattr(desk_mod, "deepsleep_ms", lambda ms: None)
 
     controller = desk_mod.DeskMode(d, _cfg(), state_path="/state.json")
     controller.handle_button("A")

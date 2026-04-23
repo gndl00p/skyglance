@@ -92,16 +92,22 @@ def _load_config():
     return config
 
 
-def _poll_loop(display, on_button, state_path):
+def _idle_loop(display, on_button, state_path, on_tick=None, tick_interval_s=0):
+    last_tick = time.time()
     while True:
         label = _pressed_label(display)
         if label is None:
+            if on_tick is not None and tick_interval_s > 0:
+                if time.time() - last_tick >= tick_interval_s:
+                    on_tick()
+                    last_tick = time.time()
             time.sleep(_POLL_INTERVAL)
             continue
         if label == "B":
             if _handle_long_press_b(display, state_path):
                 return
         on_button(label)
+        last_tick = time.time()
         _wait_for_release(display, label)
 
 
@@ -123,14 +129,21 @@ def run(state_path="/state.json"):
             controller.handle_button("A")
         else:
             controller.cycle()
-        _poll_loop(display, controller.handle_button, state_path)
+        refresh_s = getattr(config, "REFRESH_MINUTES", 15) * 60
+        _idle_loop(
+            display,
+            controller.handle_button,
+            state_path,
+            on_tick=controller.cycle,
+            tick_interval_s=refresh_s,
+        )
     else:
         controller = BadgeMode(display, config)
         if btn in ("A", "B", "C", "UP", "DOWN"):
             controller.handle_button(btn)
         else:
             controller.render_current()
-        _poll_loop(display, controller.handle_button, state_path)
+        _idle_loop(display, controller.handle_button, state_path)
 
 
 if __name__ == "__main__":
