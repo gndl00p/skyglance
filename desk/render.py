@@ -5,6 +5,13 @@ def _weather(payload):
     return (payload or {}).get("weather") or {}
 
 
+def _hhmm(iso):
+    if not iso or "T" not in iso:
+        return None
+    t = iso.split("T", 1)[1]
+    return t[:5]
+
+
 def render(display, payload, stale_marker):
     clear_white(display)
     display.set_pen(BLACK)
@@ -16,6 +23,7 @@ def render(display, payload, stale_marker):
     wind = w.get("wind") or "--"
     sky = w.get("summary") or "--"
     vis = w.get("visibility_sm")
+    updated = _hhmm((payload or {}).get("generated_at"))
 
     display.set_font("bitmap8")
 
@@ -41,6 +49,10 @@ def render(display, payload, stale_marker):
 
     # Clouds line.
     display.text(sky, 8, 108, scale=2)
+
+    # Last updated HH:MM top-right corner.
+    if updated is not None:
+        display.text(updated, WIDTH - 48, 4, scale=1)
 
     if stale_marker:
         display.text(stale_marker, WIDTH - 56, HEIGHT - 8, scale=1)

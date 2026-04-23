@@ -63,6 +63,21 @@ def test_payload_none_shows_placeholders():
     assert "--" in texts
 
 
+def test_renders_last_updated_hhmm():
+    d = FakeDisplay()
+    render(d, _PAYLOAD, stale_marker=None)
+    texts = " ".join(d.texts())
+    assert "20:13" in texts
+
+
+def test_no_timestamp_when_payload_none():
+    d = FakeDisplay()
+    render(d, None, stale_marker="offline")
+    texts = " ".join(d.texts())
+    # Sentinel "--:--" should NOT appear (we just skip the line)
+    assert "--:--" not in texts
+
+
 def test_draws_horizontal_divider():
     d = FakeDisplay()
     render(d, _PAYLOAD, stale_marker=None)
