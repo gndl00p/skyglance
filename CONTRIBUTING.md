@@ -1,36 +1,40 @@
-# Contributing
+# Contributing to SkyGlance
 
-Thanks for considering a contribution — keep it small and testable.
+Small, testable pull requests welcome.
 
-## Before you submit a pull request
+## Before submitting
 
-1. Both suites pass:
+1. The host suite passes:
    ```bash
    .venv/bin/pytest tests -v
-   server/.venv/bin/pytest server/tests -v
    ```
-2. No new file imports real hardware (`badger2040`, `machine`, `network`) outside a `try / except ImportError` guard — the test suite must stay runnable on CPython with no device attached.
-3. If you touched the METAR parser, include a new fixture under `server/tests/fixtures/` covering the edge case.
-4. Commit messages follow the existing conventional format (`feat(scope): …`, `fix(server): …`, etc.).
-
-## Adding a screen
-
-See the [Development section](./README.md#development) of the root README.
-
-## Adding an aggregator upstream
-
-See the [Development section](./README.md#development) of the root README.
-Test pattern: happy path, cached-within-ttl, stale-fallback-on-error, default-when-never-succeeded.
+2. Any new module that imports a MicroPython-only library
+   (`badger2040`, `network`, `requests`, `machine`) does so inside a
+   `try / except ImportError` guard — the suite must stay runnable on
+   CPython with no device attached.
+3. Commit messages follow `type(scope): summary` (`feat(fetcher): …`,
+   `fix(render): …`, `docs: …`).
 
 ## Reporting issues
 
 Please include:
-- Pimoroni MicroPython build string (`mpremote connect /dev/ttyACM0 exec 'import sys; print(sys.implementation)'`).
-- The aggregator response that's being fed to the badge (`curl -H "X-Badge-Token: <token>" http://<host>:8088/badge.json`).
+
+- Pimoroni MicroPython build string:
+  ```
+  mpremote connect /dev/ttyACM0 exec 'import sys; print(sys.implementation)'
+  ```
+- The ICAO station you configured and, ideally, the raw METAR:
+  ```
+  curl 'https://aviationweather.gov/api/data/metar?ids=<station>&format=raw'
+  ```
 - A photo of the e-ink display if the bug is visual.
 
 ## Code style
 
-- Python 3.11+ type hints where they aid clarity.
+- Python 3.11+ on the host, MicroPython-compatible syntax on the
+  device (dict-unpacking `{**x, ...}` spreads are not universally
+  supported — use `dict(x); out[k]=v` instead).
 - Keep the device codebase dependency-free beyond what Pimoroni ships.
-- Tests use `pytest`, `respx` (HTTP), `unittest.mock` (sync libs), `freezegun` where time matters.
+- Tests use `pytest` + `unittest.mock`. No `requests_mock`, `respx`,
+  etc. — there are no HTTP libraries to mock now that the aggregator
+  is gone; intercept `fetcher._http_get_metar` directly.

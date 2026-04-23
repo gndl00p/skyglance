@@ -3,84 +3,34 @@ try:
 except ImportError:
     badger2040 = None
 
-try:
-    import machine
-except ImportError:
-    machine = None
-
 import time
 
-from modes.badge import BadgeMode
-from modes.desk import DeskMode
-from badge_state import load as load_state
-from mode_switch import transition
+from fetcher import fetch
+from render import render
+from store import load as load_state
+from store import save as save_state
 
 
-_BUTTONS = (
-    ("BUTTON_A", "A"),
-    ("BUTTON_B", "B"),
-    ("BUTTON_C", "C"),
-    ("BUTTON_UP", "UP"),
-    ("BUTTON_DOWN", "DOWN"),
-)
-
-_LONG_PRESS_SECONDS = 2.0
 _POLL_INTERVAL = 0.05
 
 
-def _wake_button():
+def _pressed_a(display):
     if badger2040 is None:
-        return None
-    if not badger2040.woken_by_button():
-        return None
-    for const_name, label in _BUTTONS:
-        const = getattr(badger2040, const_name, None)
-        if const is not None and badger2040.pressed_to_wake(const):
-            return label
-    return None
+        return False
+    btn = getattr(badger2040, "BUTTON_A", None)
+    if btn is None:
+        return False
+    return display.pressed(btn)
 
 
-def _pressed_label(display):
+def _wait_release_a(display):
     if badger2040 is None:
-        return None
-    for const_name, label in _BUTTONS:
-        const = getattr(badger2040, const_name, None)
-        if const is not None and display.pressed(const):
-            return label
-    return None
-
-
-def _announce_mode_switch(display, new_mode):
-    display.set_pen(15)
-    display.clear()
-    display.set_pen(0)
-    display.set_font("bitmap8")
-    display.text("switching to", 10, 40, scale=1.4)
-    display.text(new_mode, 10, 72, scale=1.8)
-    display.update()
-
-
-def _handle_long_press_b(display, state_path):
-    start = time.time()
-    btn_b = getattr(badger2040, "BUTTON_B", None)
-    while display.pressed(btn_b):
-        if time.time() - start >= _LONG_PRESS_SECONDS:
-            new_mode = transition(state_path)
-            _announce_mode_switch(display, new_mode)
-            if machine is not None:
-                machine.reset()
-            return True
+        return
+    btn = getattr(badger2040, "BUTTON_A", None)
+    if btn is None:
+        return
+    while display.pressed(btn):
         time.sleep(_POLL_INTERVAL)
-    return False
-
-
-def _wait_for_release(display, label):
-    for const_name, lbl in _BUTTONS:
-        if lbl == label:
-            const = getattr(badger2040, const_name, None)
-            while const is not None and display.pressed(const):
-                time.sleep(_POLL_INTERVAL)
-            return
 
 
 def _build_display():
@@ -92,58 +42,33 @@ def _load_config():
     return config
 
 
-def _idle_loop(display, on_button, state_path, on_tick=None, tick_interval_s=0):
-    last_tick = time.time()
-    while True:
-        label = _pressed_label(display)
-        if label is None:
-            if on_tick is not None and tick_interval_s > 0:
-                if time.time() - last_tick >= tick_interval_s:
-                    on_tick()
-                    last_tick = time.time()
-            time.sleep(_POLL_INTERVAL)
-            continue
-        if label == "B":
-            if _handle_long_press_b(display, state_path):
-                return
-        on_button(label)
-        last_tick = time.time()
-        _wait_for_release(display, label)
+def _cycle(display, cfg, state_path):
+    state = load_state(state_path)
+    last = state.get("last_data")
+    data, marker = fetch(cfg, last)
+    render(display, data if data is not None else last, marker)
+    if data is not None and marker is None:
+        save_state(state_path, {"last_data": data})
 
 
 def run(state_path="/state.json"):
-    state = load_state(state_path)
-    mode = state.get("mode", "badge")
     display = _build_display()
-    config = _load_config()
+    cfg = _load_config()
 
-    btn = _wake_button()
+    _cycle(display, cfg, state_path)
 
-    if btn == "B" and badger2040 is not None:
-        if _handle_long_press_b(display, state_path):
-            return
-
-    if mode == "desk":
-        controller = DeskMode(display, config, state_path=state_path)
-        if btn == "A":
-            controller.handle_button("A")
-        else:
-            controller.cycle()
-        refresh_s = getattr(config, "REFRESH_MINUTES", 15) * 60
-        _idle_loop(
-            display,
-            controller.handle_button,
-            state_path,
-            on_tick=controller.cycle,
-            tick_interval_s=refresh_s,
-        )
-    else:
-        controller = BadgeMode(display, config)
-        if btn in ("A", "B", "C", "UP", "DOWN"):
-            controller.handle_button(btn)
-        else:
-            controller.render_current()
-        _idle_loop(display, controller.handle_button, state_path)
+    refresh_s = getattr(cfg, "REFRESH_MINUTES", 15) * 60
+    last_tick = time.time()
+    while True:
+        if _pressed_a(display):
+            _cycle(display, cfg, state_path)
+            last_tick = time.time()
+            _wait_release_a(display)
+            continue
+        if time.time() - last_tick >= refresh_s:
+            _cycle(display, cfg, state_path)
+            last_tick = time.time()
+        time.sleep(_POLL_INTERVAL)
 
 
 if __name__ == "__main__":

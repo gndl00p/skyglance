@@ -1,37 +1,50 @@
 # Changelog
 
-All notable changes are recorded here. Dates follow `YYYY-MM-DD`.
+## [0.2.0] — 2026-04-23
 
-## [Unreleased]
+Major pivot: SkyGlance is now a single-purpose aviation weather display.
 
-### Added
-- HH:MM last-updated clock (24-hour) rendered in the top-right of the desk display.
-- Scheduled auto-refresh of the desk cycle every `REFRESH_MINUTES`, independent of the button poll.
-- Wake-button dispatch + long-press B detection in `main.py`, so buttons can navigate screens and toggle modes after a halt.
+### Removed
+- **Badge mode**: all five name-card screens, mode-switch detector,
+  placeholder-asset generator, dither tool, asset files. The device is
+  no longer a dual-mode badge.
+- **FastAPI aggregator**: `server/` directory removed in full. The
+  device calls `aviationweather.gov` directly over HTTPS — no server,
+  no API key, no shared secret.
+- **Zoho Desk / Zoho CRM / Google Calendar upstreams**: no longer part
+  of the project.
+- `tools/dither_image.py`, `tools/make_placeholder_assets.py`, and
+  `assets/*.bin`.
 
 ### Changed
-- Desk display is weather-first. Big-font temperature and flight category top, station + visibility + wind + cloud layers below. Non-weather tiles removed from the render (server still provides them for API compatibility).
-- Weather upstream swapped from `open-meteo` (generic forecast) to `aviationweather.gov` (METAR). Flight category (`VFR` / `MVFR` / `IFR` / `LIFR`) computed from ceiling + visibility.
-- `display.halt()` is no longer relied upon on USB power — firmware runs a polling idle loop instead.
-- `flash.sh` leaves `/state.json` on the device alone after the first flash, so persisted mode + last fetched data survive subsequent firmware updates.
-- `state.py` renamed to `badge_state.py` to dodge the factory Pimoroni filesystem's `state/` directory.
-- Host stub renamed `badger2040w` → `badger2040` with class `Badger2040`, matching the current Pimoroni MicroPython build.
+- Project renamed **badger** → **SkyGlance**.
+- Firmware tree flattened: no more `modes/`, `screens/`, `desk/`
+  subdirectories — just `main.py`, `fetcher.py`, `render.py`,
+  `store.py` at the repository root.
+- `badge_state.py` renamed to `store.py`; state.json now stores just
+  `{"last_data": {...}}` (no mode field).
+- Weather payload is now a flat dict (no `payload.weather.*` nesting)
+  since the aggregator envelope is gone.
+- Observation time is rendered with a `Z` suffix to flag UTC.
+- `tools/flash.sh` trimmed to four firmware files plus `config.py`.
+- `config.example.py` reduced to four fields: `WIFI_SSID`, `WIFI_PSK`,
+  `METAR_STATION`, `REFRESH_MINUTES`.
+- `pyproject.toml` `name` bumped to `skyglance`, version `0.2.0`.
+
+### Added
+- `fetcher.py` now contains the full METAR parser (ported from the
+  retired aggregator's `weather.py`).
+- Host test suite trimmed to the four firmware modules; 24 tests cover
+  fetcher / render / store / main.
 
 ### Fixed
-- Dither bit polarity — `picographics.image()` draws set bits in the current pen, so black pixels must map to `1`. Placeholder assets regenerated.
-- Desk mode `test_desk_stale_fallback` and equivalent CRM test: token cache outlives the data cache, so the stale path must be triggered by the downstream endpoint failing, not the token refresh.
+- Swapped `{**dict, "stale": True}` spread (not supported by some
+  MicroPython builds) for an explicit `_stale_copy` helper.
 
 ## [0.1.0] — 2026-04-20
 
-### Added
-- Initial design spec and per-subsystem implementation plans.
-- Five badge-mode screens (name card, contact, bio, now, logo).
-- Desk-mode 4-tile dashboard, mode-switch state, button handling.
-- FastAPI aggregator with weather, Google Calendar, Zoho Desk, Zoho CRM upstreams; TTL caching and stale fallback.
-- Host test suite for both firmware and aggregator (~84 tests at release).
-- `tools/dither_image.py` host-side 1-bit packer for custom assets.
-- `tools/flash.sh` mpremote-based deployment wrapper.
-- `server/badger.service` user systemd unit.
+Initial release under the `badger` name — dual-mode firmware (badge
++ desk), FastAPI aggregator, per-tile stale fallback, 84 tests.
 
-[Unreleased]: https://github.com/gndl00p/badger/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/gndl00p/badger/releases/tag/v0.1.0
+[0.2.0]: https://github.com/gndl00p/skyglance/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/gndl00p/skyglance/releases/tag/v0.1.0

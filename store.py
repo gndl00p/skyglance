@@ -1,9 +1,10 @@
 try:
-    import ujson as _json  # MicroPython
+    import ujson as _json
 except ImportError:
-    import json as _json  # CPython host
+    import json as _json
 
-_DEFAULT = {"mode": "badge", "last_data": None}
+
+_DEFAULT = {"last_data": None}
 
 
 def load(path):

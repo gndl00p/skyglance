@@ -1,19 +1,11 @@
 # Copy to config.py on the device (or deploy via tools/flash.sh).
-NAME = "Philip Robb"
-TITLE = "Technical Lead"
-ORG = "Robb.Tech"
-URL = "https://robb.tech"
-CONTACT = {
-    "email": "philip@teamrobb.com",
-    "linkedin": "https://www.linkedin.com/in/philip-robb",
-}
-BIO = "Technical lead building infrastructure and automation at Robb.Tech."
-BIO_SKILLS = "Python · Linux · networks · LLMs"
-NOW = "Building out the Robb.Tech platform."
 
 WIFI_SSID = "REPLACE-ME"
 WIFI_PSK = "REPLACE-ME"
 
-AGGREGATOR_URL = "http://endevour.robb.tech:8088/badge.json"
-AGGREGATOR_TOKEN = "REPLACE-ME"
+# Any ICAO airport identifier — KLBB, KAUS, EGLL, YSSY, RJTT, etc.
+METAR_STATION = "KLBB"
+
+# How often to re-fetch the METAR. aviationweather.gov updates hourly;
+# 15 min is a polite cadence.
 REFRESH_MINUTES = 15

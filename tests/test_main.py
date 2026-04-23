@@ -1,51 +1,53 @@
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 from tests.fakes.display import FakeDisplay
 
 import main
 
 
-def _cfg_mod():
+def _cfg():
     return SimpleNamespace(
-        NAME="P", TITLE="T", ORG="R", URL="u",
-        CONTACT={}, BIO="b", BIO_SKILLS="s", NOW="n",
-        WIFI_SSID="", WIFI_PSK="",
-        AGGREGATOR_URL="", AGGREGATOR_TOKEN="", REFRESH_MINUTES=15,
+        WIFI_SSID="n", WIFI_PSK="p",
+        METAR_STATION="KLBB",
+        REFRESH_MINUTES=15,
     )
 
 
-def test_dispatches_to_badge_mode(tmp_path, monkeypatch):
+def test_cycle_saves_on_fresh_fetch(tmp_path, monkeypatch):
     p = tmp_path / "state.json"
-    p.write_text('{"mode": "badge", "last_data": null}')
+    p.write_text("{}")
+    d = FakeDisplay()
 
-    badge_inst = MagicMock()
-    desk_inst = MagicMock()
-    monkeypatch.setattr(main, "_build_display", lambda: FakeDisplay())
-    monkeypatch.setattr(main, "_load_config", _cfg_mod)
-    monkeypatch.setattr(main, "BadgeMode", lambda d, c: badge_inst)
-    monkeypatch.setattr(main, "DeskMode", lambda d, c, state_path: desk_inst)
-    monkeypatch.setattr(main, "_idle_loop", lambda *a, **kw: None)
+    metar = {"temp_f": 72, "station": "KLBB", "flight_category": "VFR",
+             "wind": "180 5kt", "summary": "CLR", "updated_z": "20:00",
+             "visibility_sm": 10.0, "ceiling_ft": None, "raw": "",
+             "stale": False}
 
-    main.run(state_path=str(p))
+    monkeypatch.setattr(main, "fetch", lambda cfg, last: (metar, None))
 
-    badge_inst.render_current.assert_called_once()
-    desk_inst.cycle.assert_not_called()
+    main._cycle(d, _cfg(), str(p))
+
+    import json
+    state = json.loads(p.read_text())
+    assert state["last_data"] == metar
+    assert "72" in " ".join(d.texts())
 
 
-def test_dispatches_to_desk_mode(tmp_path, monkeypatch):
+def test_cycle_offline_uses_last_data(tmp_path, monkeypatch):
     p = tmp_path / "state.json"
-    p.write_text('{"mode": "desk", "last_data": null}')
+    last = {"temp_f": 69, "station": "KLBB", "flight_category": "VFR",
+            "wind": "180 10kt", "summary": "CLR", "updated_z": "19:30",
+            "visibility_sm": 10.0, "ceiling_ft": None, "raw": "",
+            "stale": False}
+    import json
+    p.write_text(json.dumps({"last_data": last}))
 
-    badge_inst = MagicMock()
-    desk_inst = MagicMock()
-    monkeypatch.setattr(main, "_build_display", lambda: FakeDisplay())
-    monkeypatch.setattr(main, "_load_config", _cfg_mod)
-    monkeypatch.setattr(main, "BadgeMode", lambda d, c: badge_inst)
-    monkeypatch.setattr(main, "DeskMode", lambda d, c, state_path: desk_inst)
-    monkeypatch.setattr(main, "_idle_loop", lambda *a, **kw: None)
+    d = FakeDisplay()
+    monkeypatch.setattr(main, "fetch", lambda cfg, prev: ({**prev, "stale": True}, "offline"))
 
-    main.run(state_path=str(p))
+    main._cycle(d, _cfg(), str(p))
 
-    desk_inst.cycle.assert_called_once()
-    badge_inst.render_current.assert_not_called()
+    texts = " ".join(d.texts())
+    assert "69" in texts
+    assert "offline" in texts

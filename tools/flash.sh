@@ -8,27 +8,18 @@ MP="mpremote connect $DEVICE"
 
 echo "Flashing to $DEVICE from $HERE"
 
-$MP mkdir :modes || true
-$MP mkdir :screens || true
-$MP mkdir :desk || true
-$MP mkdir :assets || true
-
-$MP cp "$HERE/main.py" :main.py
-$MP cp "$HERE/badge_state.py" :badge_state.py
-$MP cp "$HERE/mode_switch.py" :mode_switch.py
-
-for f in "$HERE/modes"/*.py; do $MP cp "$f" ":modes/$(basename "$f")"; done
-for f in "$HERE/screens"/*.py; do $MP cp "$f" ":screens/$(basename "$f")"; done
-for f in "$HERE/desk"/*.py; do $MP cp "$f" ":desk/$(basename "$f")"; done
-for f in "$HERE/assets"/*.bin; do $MP cp "$f" ":assets/$(basename "$f")"; done
+$MP cp "$HERE/main.py"    :main.py
+$MP cp "$HERE/fetcher.py" :fetcher.py
+$MP cp "$HERE/render.py"  :render.py
+$MP cp "$HERE/store.py"   :store.py
 
 if [ ! -f "$HERE/config.py" ]; then
-  echo "!! $HERE/config.py missing — copy config.example.py and fill in secrets before flashing config."
+  echo "!! $HERE/config.py missing — copy config.example.py and fill in WIFI creds before flashing config."
 else
   $MP cp "$HERE/config.py" :config.py
 fi
 
-# Only create /state.json on first flash — don't clobber persisted mode+last_data.
+# Only create /state.json on first flash — don't clobber persisted last_data.
 $MP exec 'import os
 try:
     os.stat("/state.json")
