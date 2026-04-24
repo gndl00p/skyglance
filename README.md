@@ -15,6 +15,8 @@ The device talks directly to `aviationweather.gov` over HTTPS. **No server,
 no API key, no account** — flash it, set your Wi-Fi SSID and an ICAO
 identifier, and it runs.
 
+![SkyGlance running on a Pimoroni Badger 2040 W](./badger.jpg)
+
 ## Display
 
 ```
