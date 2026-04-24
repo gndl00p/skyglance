@@ -5,6 +5,7 @@ from render import render
 
 _WEATHER = {
     "temp_f": 86,
+    "dewpoint_f": 46,
     "summary": "FEW050",
     "flight_category": "VFR",
     "station": "KLBB",
@@ -56,6 +57,24 @@ def test_no_da_when_unknown():
     render(d, w)
     texts = " ".join(d.texts())
     assert "DA" not in texts
+
+
+def test_renders_temp_dewpoint_on_wind_line():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    wind_lines = [args[0] for name, args in d.calls if name == "text" and "200" in args[0]]
+    assert wind_lines
+    assert "86/46" in wind_lines[0]
+
+
+def test_no_temp_dew_when_dewpoint_unknown():
+    d = FakeDisplay()
+    w = dict(_WEATHER)
+    w["dewpoint_f"] = None
+    render(d, w)
+    wind_lines = [args[0] for name, args in d.calls if name == "text" and "200" in args[0]]
+    assert wind_lines
+    assert "/" not in wind_lines[0]
 
 
 def test_renders_last_updated_stamp():

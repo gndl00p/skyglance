@@ -28,6 +28,7 @@ def render(display, weather, stale_marker=None):
     sky = w.get("summary") or "--"
     vis = w.get("visibility_sm")
     updated = w.get("updated_z")
+    dewp = w.get("dewpoint_f")
 
     display.set_font("bitmap8")
 
@@ -55,7 +56,10 @@ def render(display, weather, stale_marker=None):
         line1 += "  DA{0}".format(da)
     display.text(line1, 8, 72, scale=2)
 
-    display.text(wind, 8, 90, scale=2)
+    wind_line = wind
+    if temp is not None and dewp is not None:
+        wind_line += "  {0}/{1}".format(int(temp), int(dewp))
+    display.text(wind_line, 8, 90, scale=2)
 
     display.text(sky, 8, 108, scale=2)
 
