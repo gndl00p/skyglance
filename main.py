@@ -10,6 +10,7 @@ from render import render as render_weather
 from picker import render as render_picker
 from status import render as render_status
 from raw import render as render_raw
+from splash import render as render_splash
 from store import load as load_state
 from store import save as save_state
 
@@ -113,6 +114,8 @@ def run(state_path="/state.json"):
     display = _build_display()
     cfg = _load_config()
     stations = _stations(cfg)
+
+    render_splash(display)
 
     state = load_state(state_path)
     raw_idx = state.get("station_index")

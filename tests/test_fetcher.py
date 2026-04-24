@@ -79,7 +79,9 @@ def test_computes_da_pa_dewpoint_spread(monkeypatch):
     response = MagicMock(status_code=200)
     response.json.return_value = _metar_payload()
     monkeypatch.setattr(fetcher, "_http_get_metar", lambda station: response)
-    monkeypatch.setattr(fetcher, "_elevation_ft", lambda station: 3282)
+    monkeypatch.setattr(fetcher, "_station_info", lambda station: {
+        "elev_ft": 3282, "name": "Lubbock", "lat": 33.66, "lon": -101.82,
+    })
 
     data, _ = fetcher.fetch(_cfg(), last_data=None)
 
@@ -105,13 +107,14 @@ def test_computes_da_pa_dewpoint_spread(monkeypatch):
     assert data["elevation_ft"] == 3282
 
 
-def test_elevation_cache_hit_avoids_second_call(monkeypatch):
+def test_station_info_cache_hit_avoids_second_call(monkeypatch):
     calls = []
 
     class R:
         status_code = 200
         def json(self):
-            return [{"icaoId": "KLBB", "elev": 1000}]
+            return [{"icaoId": "KLBB", "elev": 1000, "name": "LUBBOCK/PRESTON SMITH",
+                     "lat": 33.66, "lon": -101.82}]
         def close(self):
             pass
 
@@ -120,14 +123,39 @@ def test_elevation_cache_hit_avoids_second_call(monkeypatch):
         return R()
 
     monkeypatch.setattr(fetcher, "_http_get_airport", spy)
-    # reset cache for this test
-    fetcher._elevation_cache.clear()
+    fetcher._station_info_cache.clear()
 
-    first = fetcher._elevation_ft("KLBB")
-    second = fetcher._elevation_ft("KLBB")
+    first = fetcher._station_info("KLBB")
+    second = fetcher._station_info("KLBB")
     assert first == second
-    assert first == 3281  # 1000 m * 3.28084 ≈ 3281
+    assert first["elev_ft"] == 3281  # 1000 m * 3.28084
+    assert first["name"] == "Lubbock"
+    assert first["lat"] == 33.66
     assert calls == ["KLBB"]
+
+
+def test_sunrise_sunset_approx_for_klbb():
+    # ~May in Lubbock: sunrise ~06:50 CDT, sunset ~20:30 CDT
+    sr, ss = fetcher._sunrise_sunset_utc_hours(2026, 5, 1, 33.66, -101.82)
+    assert sr is not None and ss is not None
+    # UTC then apply -5 offset (CDT)
+    sr_hhmm = fetcher._hhmm_from_hours(sr, -5)
+    ss_hhmm = fetcher._hhmm_from_hours(ss, -5)
+    assert sr_hhmm.startswith("06:") or sr_hhmm.startswith("07:")
+    assert ss_hhmm.startswith("20:") or ss_hhmm.startswith("21:")
+
+
+def test_wind_deg_numeric_when_not_vrb(monkeypatch):
+    wlan = MagicMock()
+    wlan.isconnected.return_value = True
+    monkeypatch.setattr(fetcher, "_make_wlan", lambda: wlan)
+    response = MagicMock(status_code=200)
+    response.json.return_value = _metar_payload()
+    monkeypatch.setattr(fetcher, "_http_get_metar", lambda station: response)
+    monkeypatch.setattr(fetcher, "_station_info", lambda station: None)
+
+    data, _ = fetcher.fetch(_cfg(), last_data=None)
+    assert data["wind_deg"] == 200
 
 
 def test_da_omitted_when_elevation_unknown(monkeypatch):
@@ -137,7 +165,7 @@ def test_da_omitted_when_elevation_unknown(monkeypatch):
     response = MagicMock(status_code=200)
     response.json.return_value = _metar_payload()
     monkeypatch.setattr(fetcher, "_http_get_metar", lambda station: response)
-    monkeypatch.setattr(fetcher, "_elevation_ft", lambda station: None)
+    monkeypatch.setattr(fetcher, "_station_info", lambda station: None)
 
     data, _ = fetcher.fetch(_cfg(), last_data=None)
     assert data["density_altitude_ft"] is None
@@ -155,7 +183,9 @@ def test_fetch_happy_path(monkeypatch):
     response = MagicMock(status_code=200)
     response.json.return_value = _metar_payload()
     monkeypatch.setattr(fetcher, "_http_get_metar", lambda station: response)
-    monkeypatch.setattr(fetcher, "_elevation_ft", lambda station: 3282)
+    monkeypatch.setattr(fetcher, "_station_info", lambda station: {
+        "elev_ft": 3282, "name": "Lubbock", "lat": 33.66, "lon": -101.82,
+    })
 
     data, marker = fetcher.fetch(_cfg(), last_data=None)
 

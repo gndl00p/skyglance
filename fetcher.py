@@ -11,12 +11,14 @@ except ImportError:
     requests = None
 
 
+import math
+
 _WIFI_TIMEOUT_S = 15.0
 _HTTP_TIMEOUT_S = 8.0
 
-# aviationweather.gov airport API returns elevation in metres; cache per ICAO
-# for the session so we don't re-hit the endpoint on every refresh.
-_elevation_cache = {}
+# aviationweather.gov airport API returns elevation in metres, airport name,
+# and lat/lon; cache per ICAO for the session so we don't re-hit every refresh.
+_station_info_cache = {}
 
 
 def _make_wlan():
@@ -46,9 +48,17 @@ def _http_get_airport(station):
     return requests.get(url, timeout=_HTTP_TIMEOUT_S)
 
 
-def _elevation_ft(station):
-    if station in _elevation_cache:
-        return _elevation_cache[station]
+def _short_name(name):
+    if not name:
+        return None
+    first = name.split("/", 1)[0].strip()
+    # Title-case without locale surprises
+    return " ".join(w.capitalize() for w in first.split())
+
+
+def _station_info(station):
+    if station in _station_info_cache:
+        return _station_info_cache[station]
     try:
         r = _http_get_airport(station)
         if r.status_code != 200:
@@ -62,12 +72,73 @@ def _elevation_ft(station):
         r.close()
         if not data:
             return None
-        elev_m = data[0].get("elev")
-        if elev_m is None:
-            return None
-        ft = int(round(float(elev_m) * 3.28084))
-        _elevation_cache[station] = ft
-        return ft
+        entry = data[0]
+        elev_m = entry.get("elev")
+        info = {
+            "elev_ft": int(round(float(elev_m) * 3.28084)) if elev_m is not None else None,
+            "name": _short_name(entry.get("name")),
+            "lat": entry.get("lat"),
+            "lon": entry.get("lon"),
+        }
+        _station_info_cache[station] = info
+        return info
+    except Exception:
+        return None
+
+
+def _day_of_year(y, m, d):
+    days = [31, 28 + (1 if y % 4 == 0 and (y % 100 != 0 or y % 400 == 0) else 0),
+            31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    return sum(days[:m-1]) + d
+
+
+def _sunrise_sunset_utc_hours(y, m, d, lat, lon):
+    """NOAA-ish approximation. Returns (sr_utc_h, ss_utc_h) as floats, or (None, None) if polar."""
+    try:
+        N = _day_of_year(y, m, d)
+        gamma = 2 * math.pi / 365 * (N - 1)
+        eqtime = 229.18 * (0.000075
+                           + 0.001868 * math.cos(gamma)
+                           - 0.032077 * math.sin(gamma)
+                           - 0.014615 * math.cos(2 * gamma)
+                           - 0.040849 * math.sin(2 * gamma))
+        decl = (0.006918
+                - 0.399912 * math.cos(gamma) + 0.070257 * math.sin(gamma)
+                - 0.006758 * math.cos(2 * gamma) + 0.000907 * math.sin(2 * gamma)
+                - 0.002697 * math.cos(3 * gamma) + 0.00148 * math.sin(3 * gamma))
+        lat_rad = math.radians(lat)
+        cos_ha = (math.cos(math.radians(90.833))
+                  / (math.cos(lat_rad) * math.cos(decl))
+                  - math.tan(lat_rad) * math.tan(decl))
+        if cos_ha > 1 or cos_ha < -1:
+            return None, None
+        ha = math.degrees(math.acos(cos_ha))
+        sr = (12 - ha / 15 - lon / 15 - eqtime / 60) % 24
+        ss = (12 + ha / 15 - lon / 15 - eqtime / 60) % 24
+        return sr, ss
+    except Exception:
+        return None, None
+
+
+def _hhmm_from_hours(h, tz_offset):
+    if h is None:
+        return None
+    local = (h + tz_offset) % 24
+    hh = int(local)
+    mm = int(round((local - hh) * 60))
+    if mm == 60:
+        hh = (hh + 1) % 24
+        mm = 0
+    return "{0:02d}:{1:02d}".format(hh, mm)
+
+
+def _parse_report_date(report_time):
+    if not report_time or "T" not in str(report_time):
+        return None
+    date_str = str(report_time).split("T", 1)[0]
+    try:
+        y, m, d = date_str.split("-")
+        return int(y), int(m), int(d)
     except Exception:
         return None
 
@@ -193,7 +264,9 @@ _EMPTY = {
     "summary": "no data",
     "flight_category": None,
     "station": None,
+    "station_name": None,
     "wind": None,
+    "wind_deg": None,
     "visibility_sm": None,
     "ceiling_ft": None,
     "raw": None,
@@ -204,15 +277,27 @@ _EMPTY = {
     "density_altitude_ft": None,
     "pressure_altitude_ft": None,
     "elevation_ft": None,
+    "lat": None,
+    "lon": None,
+    "sunrise_local": None,
+    "sunset_local": None,
     "stale": False,
 }
 
 
-def _parse(payload, station, elev_ft):
+def _parse(payload, station, info, tz_offset):
+    elev_ft = info["elev_ft"] if info else None
+    station_name = info["name"] if info else None
+    lat = info["lat"] if info else None
+    lon = info["lon"] if info else None
+
     if not payload:
         out = dict(_EMPTY)
         out["station"] = station
+        out["station_name"] = station_name
         out["elevation_ft"] = elev_ft
+        out["lat"] = lat
+        out["lon"] = lon
         out["stale"] = True
         return out
     m = payload[0]
@@ -228,12 +313,33 @@ def _parse(payload, station, elev_ft):
     spread_f = None
     if temp_f is not None and dewp_f is not None:
         spread_f = temp_f - dewp_f
+
+    # Sunrise / sunset for the observation date at the station's coordinates
+    sunrise_local = None
+    sunset_local = None
+    report_date = _parse_report_date(m.get("reportTime"))
+    if report_date is not None and lat is not None and lon is not None:
+        y, mo, d = report_date
+        sr_utc, ss_utc = _sunrise_sunset_utc_hours(y, mo, d, lat, lon)
+        sunrise_local = _hhmm_from_hours(sr_utc, tz_offset)
+        sunset_local = _hhmm_from_hours(ss_utc, tz_offset)
+
+    wdir = m.get("wdir")
+    wind_deg = None
+    try:
+        if wdir is not None and not (isinstance(wdir, str) and str(wdir).upper() == "VRB"):
+            wind_deg = int(wdir)
+    except Exception:
+        wind_deg = None
+
     return {
         "temp_f": temp_f,
         "summary": _summarize_clouds(m.get("clouds")),
         "flight_category": _flight_category(ceiling, vis_sm),
         "station": m.get("icaoId") or station,
-        "wind": _format_wind(m.get("wdir"), m.get("wspd"), m.get("wgst")),
+        "station_name": station_name,
+        "wind": _format_wind(wdir, m.get("wspd"), m.get("wgst")),
+        "wind_deg": wind_deg,
         "visibility_sm": vis_sm,
         "ceiling_ft": ceiling,
         "raw": m.get("rawOb"),
@@ -244,6 +350,10 @@ def _parse(payload, station, elev_ft):
         "density_altitude_ft": da_ft,
         "pressure_altitude_ft": pa_ft,
         "elevation_ft": elev_ft,
+        "lat": lat,
+        "lon": lon,
+        "sunrise_local": sunrise_local,
+        "sunset_local": sunset_local,
         "stale": False,
     }
 
@@ -285,7 +395,9 @@ def fetch(cfg, last_data, station=None):
             out["station"] = station
             out["stale"] = True
             return out, "bad payload"
-        return _parse(payload, station, _elevation_ft(station)), None
+        info = _station_info(station)
+        tz_offset = getattr(cfg, "TIMEZONE_OFFSET", 0)
+        return _parse(payload, station, info, tz_offset), None
     except Exception:
         if last_data is not None:
             return _stale_copy(last_data), "offline"

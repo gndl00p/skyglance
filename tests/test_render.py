@@ -9,12 +9,16 @@ _WEATHER = {
     "summary": "FEW050",
     "flight_category": "VFR",
     "station": "KLBB",
+    "station_name": "Lubbock",
     "wind": "200 5kt G15",
+    "wind_deg": 200,
     "visibility_sm": 10.0,
     "ceiling_ft": None,
     "raw": "KLBB 232200Z 20005G15KT 10SM FEW050 30/M04 A2998",
     "updated_z": "22:00",
     "density_altitude_ft": 5800,
+    "sunrise_local": "06:45",
+    "sunset_local": "20:15",
     "stale": False,
 }
 
@@ -75,6 +79,59 @@ def test_no_temp_dew_when_dewpoint_unknown():
     wind_lines = [args[0] for name, args in d.calls if name == "text" and "200" in args[0]]
     assert wind_lines
     assert "/" not in wind_lines[0]
+
+
+def test_renders_station_name():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    texts = " ".join(d.texts())
+    assert "Lubbock" in texts
+
+
+def test_renders_sunrise_sunset():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    texts = " ".join(d.texts())
+    assert "SR 06:45" in texts
+    assert "SS 20:15" in texts
+
+
+def test_inverted_category_for_ifr():
+    d = FakeDisplay()
+    w = dict(_WEATHER, flight_category="IFR")
+    render(d, w)
+    # Big inverted block = a rectangle call in the top-right region + a WHITE pen switch.
+    rects = [args for name, args in d.calls if name == "rectangle"]
+    big_rects = [r for r in rects if r[1] <= 10 and r[3] >= 40]  # y1 top, tall
+    assert big_rects
+    pens = [args[0] for name, args in d.calls if name == "set_pen"]
+    assert 15 in pens  # switched to WHITE for the inverted text
+
+
+def test_plain_category_for_vfr():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    # Only the clear-white full-screen rectangle should be at y=0.
+    top_rects = [args for name, args in d.calls if name == "rectangle" and args[0] == 0 and args[1] == 0]
+    other_big_rects = [args for name, args in d.calls if name == "rectangle" and args[1] < 60 and (args[0], args[1]) != (0, 0)]
+    assert not other_big_rects
+
+
+def test_wind_arrow_drawn_when_wind_deg_present():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    lines = [args for name, args in d.calls if name == "line"]
+    # At least: the horizontal divider (y1==y2==64) plus the arrow shaft + two arrowhead lines
+    assert len(lines) >= 4
+
+
+def test_no_arrow_when_wind_deg_missing():
+    d = FakeDisplay()
+    w = dict(_WEATHER, wind_deg=None)
+    render(d, w)
+    lines = [args for name, args in d.calls if name == "line"]
+    # Only the divider remains
+    assert len(lines) == 1
 
 
 def test_renders_last_updated_stamp():
