@@ -35,6 +35,6 @@ Please include:
   device (dict-unpacking `{**x, ...}` spreads are not universally
   supported — use `dict(x); out[k]=v` instead).
 - Keep the device codebase dependency-free beyond what Pimoroni ships.
-- Tests use `pytest` + `unittest.mock`. No `requests_mock`, `respx`,
-  etc. — there are no HTTP libraries to mock now that the aggregator
-  is gone; intercept `fetcher._http_get_metar` directly.
+- Tests use `pytest` + `unittest.mock` only. No `requests_mock` /
+  `respx` — intercept `fetcher._http_get_metar` directly and have it
+  return a `MagicMock` with the fields your test cares about.

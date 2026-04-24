@@ -215,13 +215,6 @@ w = network.WLAN(network.STA_IF); w.active(True); time.sleep(1)
 for n in w.scan(): print(n[0], n[2], n[3])'
 ```
 
-### E-ink shows solid black blocks
-
-You flashed artwork from a previous version that used an inverted
-dither polarity. If you're re-adding asset support, pack bit=1 for
-black pixels — Pimoroni's `picographics.image()` draws set bits in
-the current pen.
-
 ### Buttons don't respond after the first render
 
 The firmware uses a polling idle loop specifically because
