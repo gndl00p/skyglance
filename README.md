@@ -55,11 +55,22 @@ python3 -m venv .venv
 
 ```bash
 cp config.example.py config.py
-# edit config.py:
-#   WIFI_SSID        = "<your 2.4 GHz SSID>"
-#   WIFI_PSK         = "<password>"
-#   METAR_STATION    = "KLBB"   # any ICAO identifier
-#   REFRESH_MINUTES  = 15
+```
+
+Edit `config.py`:
+
+```python
+WIFI_SSID = "your 2.4 GHz SSID"
+WIFI_PSK  = "password"
+
+# One or more ICAO airport identifiers. Press UP or DOWN on the badge
+# to open the picker and switch between them; the first entry is the
+# default on first boot.
+METAR_STATIONS = ["KLBB", "KAUS", "KDFW", "EGLL"]
+
+# How often to re-fetch the METAR for the currently-displayed station.
+# aviationweather.gov updates hourly; 15 min is a polite cadence.
+REFRESH_MINUTES = 15
 ```
 
 `config.py` is git-ignored — your Wi-Fi password never leaves the device.
@@ -123,30 +134,37 @@ Evaluated top-to-bottom — a 700 ft ceiling wins over 10 SM visibility.
 
 ### Main screen (weather)
 
-| Button     | Action                                                |
-| ---------- | ----------------------------------------------------- |
-| A, B       | Force refresh the current station                     |
-| C          | Open the **status** page (battery, Wi-Fi, station)    |
-| UP, DOWN   | Open the **station picker**                           |
+| Button     | Action                                                     |
+| ---------- | ---------------------------------------------------------- |
+| A          | Force refresh the current station                          |
+| B          | Show the **raw METAR** for the current observation         |
+| C          | Open the **status** page (battery, Wi-Fi, station)         |
+| UP, DOWN   | Open the **station picker**                                |
 
 ### Station picker
 
-| Button     | Action                                                |
-| ---------- | ----------------------------------------------------- |
-| UP         | Move cursor up (wraps)                                |
-| DOWN       | Move cursor down (wraps)                              |
-| A          | Select the highlighted station; return to main screen |
-| B          | Cancel; return to main screen                         |
+| Button     | Action                                                     |
+| ---------- | ---------------------------------------------------------- |
+| UP         | Move cursor up (wraps)                                     |
+| DOWN       | Move cursor down (wraps)                                   |
+| A          | Select the highlighted station; return to main screen      |
+| B          | Cancel; return to main screen                              |
 
 The selected station is persisted in `/state.json`, so a reboot comes
 back to the last airport you chose.
 
 ### Status page
 
-| Button     | Action                                                |
-| ---------- | ----------------------------------------------------- |
-| A          | Refresh the status readings (battery, Wi-Fi, etc.)    |
-| B          | Return to main screen                                 |
+| Button     | Action                                                     |
+| ---------- | ---------------------------------------------------------- |
+| A          | Refresh the status readings (battery, Wi-Fi, etc.)         |
+| B          | Return to main screen                                      |
+
+### Raw METAR page
+
+| Button     | Action                                                     |
+| ---------- | ---------------------------------------------------------- |
+| B          | Return to main screen                                      |
 
 ## Repository layout
 

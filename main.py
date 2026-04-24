@@ -9,6 +9,7 @@ from fetcher import fetch
 from render import render as render_weather
 from picker import render as render_picker
 from status import render as render_status
+from raw import render as render_raw
 from store import load as load_state
 from store import save as save_state
 
@@ -84,10 +85,14 @@ def run(state_path="/state.json"):
 
     while True:
         if view == "main":
-            if _pressed(display, "BUTTON_A") or _pressed(display, "BUTTON_B"):
+            if _pressed(display, "BUTTON_A"):
                 _cycle(display, cfg, state_path, station_index)
                 last_tick = time.time()
                 _wait_release(display, "BUTTON_A")
+            elif _pressed(display, "BUTTON_B"):
+                view = "raw"
+                saved = load_state(state_path).get("last_data") or {}
+                render_raw(display, saved.get("raw") or "")
                 _wait_release(display, "BUTTON_B")
             elif _pressed(display, "BUTTON_C"):
                 view = "status"
@@ -130,11 +135,16 @@ def run(state_path="/state.json"):
                 last_tick = time.time()
                 _wait_release(display, "BUTTON_B")
             elif _pressed(display, "BUTTON_A"):
-                # Refresh the status page itself.
                 current_station = stations[station_index]
                 saved = load_state(state_path).get("last_data") or {}
                 render_status(display, current_station, saved.get("updated_z"))
                 _wait_release(display, "BUTTON_A")
+        elif view == "raw":
+            if _pressed(display, "BUTTON_B"):
+                view = "main"
+                _cycle(display, cfg, state_path, station_index)
+                last_tick = time.time()
+                _wait_release(display, "BUTTON_B")
 
         time.sleep(_POLL_INTERVAL)
 
