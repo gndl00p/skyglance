@@ -27,10 +27,15 @@ identifier, and it runs.
  |                           last updated 22:00Z  |
  |  ----------------------------------------------|
  |   KLBB    vis 10SM    DA5600                   |
- |   200 5kt G15                                  |
+ |   200 5kt G15    86/46                         |
  |   FEW050                                       |
  +------------------------------------------------+
 ```
+
+Lines 1-2: big temp (°F) + flight category; small `last updated` time
+in Zulu. Line 3: station, visibility, density altitude. Line 4: wind
+(direction / speed / gust) and temperature/dewpoint (°F). Line 5: cloud
+layers in METAR short form.
 
 The **DA** value is the current density altitude in feet, computed from
 the station elevation + altimeter setting + observed temperature. It's
