@@ -11,6 +11,7 @@ from picker import render as render_picker
 from status import render as render_status
 from raw import render as render_raw
 from splash import render as render_splash
+from status import _battery_v
 from store import load as load_state
 from store import save as save_state
 
@@ -19,6 +20,13 @@ _POLL_INTERVAL = 0.05
 
 _UPDATE_NORMAL = 0
 _UPDATE_TURBO = 3
+
+# Backoff schedule (seconds) when consecutive fetches fail. Capped by the
+# configured REFRESH_MINUTES baseline.
+_BACKOFF_SECONDS = (30, 60, 120, 300)
+
+# Battery voltage below this is treated as running on LiPo, not USB.
+_USB_THRESHOLD_V = 4.5
 
 _HEARTBEAT_INTERVAL_S = 20.0
 _HEARTBEAT_DURATION_S = 0.08
@@ -108,6 +116,24 @@ def _cycle(display, cfg, state_path, station_index):
     render_weather(display, data if data is not None else last, marker)
     if data is not None and marker is None:
         save_state(state_path, {"station_index": station_index, "last_data": data})
+    return marker
+
+
+def _refresh_interval_s(cfg):
+    base = getattr(cfg, "REFRESH_MINUTES", 15) * 60
+    v = _battery_v()
+    if v is not None and v < _USB_THRESHOLD_V:
+        # On battery — at least 30 min between refreshes.
+        base = max(base, 30 * 60)
+    return base
+
+
+def _next_delay_s(cfg, consecutive_failures):
+    if consecutive_failures <= 0:
+        return _refresh_interval_s(cfg)
+    idx = min(consecutive_failures - 1, len(_BACKOFF_SECONDS) - 1)
+    # Never wait longer between retries than a normal refresh would take.
+    return min(_BACKOFF_SECONDS[idx], _refresh_interval_s(cfg))
 
 
 def run(state_path="/state.json"):
@@ -124,20 +150,23 @@ def run(state_path="/state.json"):
     except (TypeError, ValueError):
         station_index = 0
 
-    _cycle(display, cfg, state_path, station_index)
+    initial_marker = _cycle(display, cfg, state_path, station_index)
 
-    refresh_s = getattr(cfg, "REFRESH_MINUTES", 15) * 60
     last_tick = time.time()
     view = "main"
     cursor = station_index
     heartbeat = Heartbeat()
+    consecutive_failures = 0 if initial_marker is None else 1
+    auto_cycle_s = getattr(cfg, "AUTO_CYCLE_MINUTES", 0) * 60
+    last_auto_cycle = time.time()
 
     while True:
         heartbeat.tick(display, time.time())
 
         if view == "main":
             if _pressed(display, "BUTTON_A"):
-                _cycle(display, cfg, state_path, station_index)
+                marker = _cycle(display, cfg, state_path, station_index)
+                consecutive_failures = 0 if marker is None else consecutive_failures + 1
                 last_tick = time.time()
                 _wait_release(display, "BUTTON_A")
             elif _pressed(display, "BUTTON_B"):
@@ -160,9 +189,19 @@ def run(state_path="/state.json"):
                 render_picker(display, stations, cursor, station_index)
                 for attr in ("BUTTON_UP", "BUTTON_DOWN"):
                     _wait_release(display, attr)
-            elif time.time() - last_tick >= refresh_s:
-                _cycle(display, cfg, state_path, station_index)
-                last_tick = time.time()
+            else:
+                now = time.time()
+                # Auto-cycle station rotation takes precedence when enabled.
+                if auto_cycle_s > 0 and now - last_auto_cycle >= auto_cycle_s:
+                    station_index = (station_index + 1) % len(stations)
+                    marker = _cycle(display, cfg, state_path, station_index)
+                    consecutive_failures = 0 if marker is None else consecutive_failures + 1
+                    last_auto_cycle = now
+                    last_tick = now
+                elif now - last_tick >= _next_delay_s(cfg, consecutive_failures):
+                    marker = _cycle(display, cfg, state_path, station_index)
+                    consecutive_failures = 0 if marker is None else consecutive_failures + 1
+                    last_tick = now
         elif view == "list":
             if _pressed(display, "BUTTON_UP"):
                 cursor = (cursor - 1) % len(stations)
@@ -178,17 +217,21 @@ def run(state_path="/state.json"):
             elif _pressed(display, "BUTTON_A"):
                 station_index = cursor
                 view = "main"
-                _cycle(display, cfg, state_path, station_index)
+                marker = _cycle(display, cfg, state_path, station_index)
+                consecutive_failures = 0 if marker is None else consecutive_failures + 1
                 last_tick = time.time()
+                last_auto_cycle = time.time()
                 _wait_release(display, "BUTTON_A")
             elif _pressed(display, "BUTTON_B"):
                 view = "main"
-                _cycle(display, cfg, state_path, station_index)
+                marker = _cycle(display, cfg, state_path, station_index)
+                consecutive_failures = 0 if marker is None else consecutive_failures + 1
                 _wait_release(display, "BUTTON_B")
         elif view == "status":
             if _pressed(display, "BUTTON_B"):
                 view = "main"
-                _cycle(display, cfg, state_path, station_index)
+                marker = _cycle(display, cfg, state_path, station_index)
+                consecutive_failures = 0 if marker is None else consecutive_failures + 1
                 last_tick = time.time()
                 _wait_release(display, "BUTTON_B")
             elif _pressed(display, "BUTTON_A"):
@@ -199,7 +242,8 @@ def run(state_path="/state.json"):
         elif view == "raw":
             if _pressed(display, "BUTTON_B"):
                 view = "main"
-                _cycle(display, cfg, state_path, station_index)
+                marker = _cycle(display, cfg, state_path, station_index)
+                consecutive_failures = 0 if marker is None else consecutive_failures + 1
                 last_tick = time.time()
                 _wait_release(display, "BUTTON_B")
 

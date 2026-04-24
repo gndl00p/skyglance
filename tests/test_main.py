@@ -31,7 +31,8 @@ def test_cycle_saves_on_fresh_fetch(tmp_path, monkeypatch):
 
     monkeypatch.setattr(main, "fetch", fake_fetch)
 
-    main._cycle(d, _cfg(), str(p), station_index=0)
+    marker = main._cycle(d, _cfg(), str(p), station_index=0)
+    assert marker is None
 
     import json
     state = json.loads(p.read_text())
@@ -39,6 +40,17 @@ def test_cycle_saves_on_fresh_fetch(tmp_path, monkeypatch):
     assert state["station_index"] == 0
     assert captured["station"] == "KLBB"
     assert "72" in " ".join(d.texts())
+
+
+def test_cycle_returns_marker_on_failure(tmp_path, monkeypatch):
+    p = tmp_path / "state.json"
+    p.write_text("{}")
+    d = FakeDisplay()
+
+    monkeypatch.setattr(main, "fetch", lambda cfg, last, station=None: (None, "offline"))
+
+    marker = main._cycle(d, _cfg(), str(p), station_index=0)
+    assert marker == "offline"
 
 
 def test_cycle_switches_station_by_index(tmp_path, monkeypatch):
@@ -189,3 +201,42 @@ def test_heartbeat_survives_missing_led_method():
     hb.tick(NoLed(), 2.0)   # would turn on, display.led missing
     hb.tick(NoLed(), 2.2)   # would turn off, display.led missing
     # No exception = pass
+
+
+def test_refresh_interval_usb(monkeypatch):
+    monkeypatch.setattr(main, "_battery_v", lambda: 5.0)
+    cfg = SimpleNamespace(REFRESH_MINUTES=15)
+    assert main._refresh_interval_s(cfg) == 15 * 60
+
+
+def test_refresh_interval_lipo_stretches_to_30min(monkeypatch):
+    monkeypatch.setattr(main, "_battery_v", lambda: 3.8)
+    cfg = SimpleNamespace(REFRESH_MINUTES=15)
+    assert main._refresh_interval_s(cfg) == 30 * 60
+
+
+def test_refresh_interval_lipo_keeps_longer_config(monkeypatch):
+    monkeypatch.setattr(main, "_battery_v", lambda: 3.8)
+    cfg = SimpleNamespace(REFRESH_MINUTES=60)
+    assert main._refresh_interval_s(cfg) == 60 * 60
+
+
+def test_next_delay_backoff(monkeypatch):
+    monkeypatch.setattr(main, "_battery_v", lambda: 5.0)
+    cfg = SimpleNamespace(REFRESH_MINUTES=15)
+    # 0 failures → normal refresh interval
+    assert main._next_delay_s(cfg, 0) == 15 * 60
+    # 1 failure → first backoff step (30 s)
+    assert main._next_delay_s(cfg, 1) == 30
+    # 2 failures → 60 s
+    assert main._next_delay_s(cfg, 2) == 60
+    # Many failures → caps at the last schedule entry or refresh interval
+    assert main._next_delay_s(cfg, 10) == min(main._BACKOFF_SECONDS[-1], 15 * 60)
+
+
+def test_next_delay_capped_by_short_refresh(monkeypatch):
+    monkeypatch.setattr(main, "_battery_v", lambda: 5.0)
+    # 1-minute refresh → backoff never exceeds that
+    cfg = SimpleNamespace(REFRESH_MINUTES=1)
+    for failures in range(1, 6):
+        assert main._next_delay_s(cfg, failures) <= 60

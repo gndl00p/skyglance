@@ -137,11 +137,13 @@ Evaluated top-to-bottom — a 700 ft ceiling wins over 10 SM visibility.
 
 | Field              | Purpose                                                           |
 | ------------------ | ----------------------------------------------------------------- |
-| `WIFI_SSID`        | 2.4 GHz network the Pico W joins                                  |
-| `WIFI_PSK`         | Pre-shared key                                                    |
-| `METAR_STATIONS`   | List of ICAO identifiers, e.g. `["KLBB", "KAUS", "EGLL"]`         |
-| `METAR_STATION`    | (legacy, single identifier) — used when `METAR_STATIONS` is unset |
-| `REFRESH_MINUTES`  | How often to re-fetch. METARs update hourly — 15 is polite.       |
+| `WIFI_SSID`          | 2.4 GHz network the Pico W joins                                  |
+| `WIFI_PSK`           | Pre-shared key                                                    |
+| `METAR_STATIONS`     | List of ICAO identifiers, e.g. `["KLBB", "KAUS", "EGLL"]`         |
+| `METAR_STATION`      | (legacy, single identifier) — used when `METAR_STATIONS` is unset |
+| `REFRESH_MINUTES`    | How often to re-fetch. METARs update hourly — 15 is polite.       |
+| `AUTO_CYCLE_MINUTES` | Rotate the displayed station every N minutes (0 disables).       |
+| `TIMEZONE_OFFSET`    | Hours from UTC for the sunrise/sunset display (-5 = CDT, +1 = CET). |
 
 ## Buttons
 
