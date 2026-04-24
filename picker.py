@@ -25,12 +25,9 @@ def _window(total, cursor):
 
 
 def render(display, stations, cursor, active_index):
-    # badger2040.UPDATE_TURBO == 3 (approx 0.3 s refresh, ghosting acceptable).
-    try:
-        display.set_update_speed(3)
-    except Exception:
-        pass
-
+    # Update speed is chosen by the caller — a clean NORMAL refresh on entry,
+    # TURBO for cursor moves — so that the first menu frame doesn't inherit
+    # the ghosting accumulated over a long session.
     _clear_white(display)
     display.set_pen(BLACK)
     display.set_font("bitmap8")

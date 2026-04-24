@@ -80,7 +80,6 @@ def test_cycle_station_index_wraps(tmp_path, monkeypatch):
 
     monkeypatch.setattr(main, "fetch", fake_fetch)
 
-    # index 2 with 2 stations wraps to KLBB
     main._cycle(d, _cfg(), str(p), station_index=2)
     assert captured == ["KLBB"]
 
@@ -123,3 +122,18 @@ def test_stations_helper_returns_list():
 def test_stations_helper_default_when_empty():
     cfg = SimpleNamespace()
     assert main._stations(cfg) == ["KLBB"]
+
+
+def test_set_speed_is_safe_when_display_lacks_method():
+    class NoSpeed:
+        pass
+
+    # Should not raise
+    main._set_speed(NoSpeed(), 3)
+
+
+def test_set_speed_forwards_to_display():
+    d = FakeDisplay()
+    main._set_speed(d, main._UPDATE_TURBO)
+    speeds = [args[0] for name, args in d.calls if name == "set_update_speed"]
+    assert speeds == [3]

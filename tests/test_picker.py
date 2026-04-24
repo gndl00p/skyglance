@@ -65,3 +65,12 @@ def test_draws_header_divider_line():
     render(d, ["KLBB"], cursor=0, active_index=0)
     lines = [args for name, args in d.calls if name == "line"]
     assert any(a[1] == 14 for a in lines)
+
+
+def test_picker_does_not_set_update_speed():
+    # The caller picks the refresh speed (NORMAL on entry, TURBO on cursor
+    # moves), so picker.render stays pen/font only.
+    d = FakeDisplay()
+    render(d, ["KLBB"], cursor=0, active_index=0)
+    speeds = [args for name, args in d.calls if name == "set_update_speed"]
+    assert speeds == []

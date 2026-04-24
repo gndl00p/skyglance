@@ -16,6 +16,16 @@ from store import save as save_state
 
 _POLL_INTERVAL = 0.05
 
+_UPDATE_NORMAL = 0
+_UPDATE_TURBO = 3
+
+
+def _set_speed(display, speed):
+    try:
+        display.set_update_speed(speed)
+    except Exception:
+        pass
+
 
 def _stations(cfg):
     stations = getattr(cfg, "METAR_STATIONS", None)
@@ -103,6 +113,9 @@ def run(state_path="/state.json"):
             elif _pressed(display, "BUTTON_UP") or _pressed(display, "BUTTON_DOWN"):
                 cursor = station_index
                 view = "list"
+                # First menu frame gets a clean NORMAL refresh so ghosting
+                # from the weather view doesn't bleed into the list.
+                _set_speed(display, _UPDATE_NORMAL)
                 render_picker(display, stations, cursor, station_index)
                 for attr in ("BUTTON_UP", "BUTTON_DOWN"):
                     _wait_release(display, attr)
@@ -112,10 +125,13 @@ def run(state_path="/state.json"):
         elif view == "list":
             if _pressed(display, "BUTTON_UP"):
                 cursor = (cursor - 1) % len(stations)
+                # Subsequent moves use TURBO — ghosting acceptable, speed matters.
+                _set_speed(display, _UPDATE_TURBO)
                 render_picker(display, stations, cursor, station_index)
                 _wait_release(display, "BUTTON_UP")
             elif _pressed(display, "BUTTON_DOWN"):
                 cursor = (cursor + 1) % len(stations)
+                _set_speed(display, _UPDATE_TURBO)
                 render_picker(display, stations, cursor, station_index)
                 _wait_release(display, "BUTTON_DOWN")
             elif _pressed(display, "BUTTON_A"):
