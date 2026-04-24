@@ -25,6 +25,12 @@ def _window(total, cursor):
 
 
 def render(display, stations, cursor, active_index):
+    # badger2040.UPDATE_TURBO == 3 (approx 0.3 s refresh, ghosting acceptable).
+    try:
+        display.set_update_speed(3)
+    except Exception:
+        pass
+
     _clear_white(display)
     display.set_pen(BLACK)
     display.set_font("bitmap8")

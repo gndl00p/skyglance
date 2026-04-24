@@ -48,6 +48,9 @@ class FakeDisplay:
     def led(self, v):
         self._log("led", v)
 
+    def set_update_speed(self, v):
+        self._log("set_update_speed", v)
+
     def pressed(self, btn):
         return btn in self._pressed
 

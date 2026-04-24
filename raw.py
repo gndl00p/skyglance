@@ -31,6 +31,12 @@ def _wrap(text, max_chars):
 
 
 def render(display, raw_text):
+    # UPDATE_NORMAL for text legibility.
+    try:
+        display.set_update_speed(0)
+    except Exception:
+        pass
+
     _clear_white(display)
     display.set_pen(BLACK)
     display.set_font("bitmap8")

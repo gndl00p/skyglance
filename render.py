@@ -11,6 +11,12 @@ def _clear_white(display):
 
 
 def render(display, weather, stale_marker=None):
+    # UPDATE_NORMAL == 0 — cleanest refresh for the main weather view.
+    try:
+        display.set_update_speed(0)
+    except Exception:
+        pass
+
     _clear_white(display)
     display.set_pen(BLACK)
 

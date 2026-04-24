@@ -69,6 +69,12 @@ def _format_wifi_line(info):
 
 
 def render(display, station, updated_z=None):
+    # UPDATE_FAST == 2 — readable, faster than NORMAL.
+    try:
+        display.set_update_speed(2)
+    except Exception:
+        pass
+
     _clear_white(display)
     display.set_pen(BLACK)
     display.set_font("bitmap8")
