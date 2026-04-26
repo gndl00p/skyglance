@@ -86,16 +86,19 @@ def render(display, weather, stale_marker=None, invert=None):
             line1 += "  vis {0}SM".format(vis)
     if da is not None:
         line1 += "  DA{0}".format(da)
-    display.text(line1, 8, 72, scale=2)
+    display.text(line1, 8, 68, scale=2)
 
     # Wind line + temp/dew pair.
     wind_line = wind
     if temp is not None and dewp is not None:
         wind_line += "  {0}/{1}".format(int(temp), int(dewp))
-    display.text(wind_line, 8, 90, scale=2)
+    display.text(wind_line, 8, 86, scale=2)
 
     # Clouds line.
-    display.text(sky, 8, 108, scale=2)
+    display.text(sky, 8, 104, scale=2)
+
+    # Bottom row sits below the clouds line (y=104 scale=2 ends at 120).
+    bottom_y = 121
 
     # Bottom-left small line: runway readout (when configured).
     rwy_hdg = w.get("runway_heading_deg")
@@ -105,7 +108,7 @@ def render(display, weather, stale_marker=None, invert=None):
             rwy_num = 36
         rwy_line = "RWY {0:02d}  HW {1}  XW {2}{3}".format(
             rwy_num, hw, xw, xw_side or "")
-        display.text(rwy_line, 8, HEIGHT - 9, scale=1)
+        display.text(rwy_line, 8, bottom_y, scale=1)
 
     # Bottom-right small line: sunrise / sunset.
     if sr is not None or ss is not None:
@@ -115,11 +118,11 @@ def render(display, weather, stale_marker=None, invert=None):
         if ss is not None:
             parts.append("SS {0}".format(ss))
         line = "  ".join(parts)
-        display.text(line, WIDTH - (len(line) * 6) - 6, HEIGHT - 9, scale=1)
+        display.text(line, WIDTH - (len(line) * 6) - 6, bottom_y, scale=1)
 
     if stale_marker:
         # Stale marker pre-empts the runway slot if both compete for the
         # bottom-left.
-        display.text(stale_marker, 8, HEIGHT - 9, scale=1)
+        display.text(stale_marker, 8, bottom_y, scale=1)
 
     display.update()
