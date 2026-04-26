@@ -77,8 +77,12 @@ def _short_name(name):
     if not name:
         return None
     first = name.split("/", 1)[0].strip()
-    # Title-case without locale surprises
-    return " ".join(w.capitalize() for w in first.split())
+    # Manual title-case — MicroPython doesn't ship str.capitalize().
+    parts = []
+    for w in first.split():
+        if w:
+            parts.append(w[0:1].upper() + w[1:].lower())
+    return " ".join(parts)
 
 
 def _station_info_attempt(station):
