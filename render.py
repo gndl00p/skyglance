@@ -1,5 +1,3 @@
-import math
-
 WHITE = 15
 BLACK = 0
 WIDTH = 296
@@ -13,24 +11,6 @@ def _is_night_hour(hour):
     if hour is None:
         return False
     return hour >= 22 or hour < 6
-
-
-def _draw_wind_arrow(display, cx, cy, r, wind_deg):
-    if wind_deg is None:
-        return
-    angle = math.radians((wind_deg + 180) % 360)
-    dx = math.sin(angle)
-    dy = -math.cos(angle)
-    tip = (int(cx + dx * r), int(cy + dy * r))
-    tail = (int(cx - dx * r), int(cy - dy * r))
-    display.line(tail[0], tail[1], tip[0], tip[1])
-    head_r = 5
-    spread = math.radians(30)
-    for sign in (1, -1):
-        back = angle + math.pi + sign * spread
-        hx = int(tip[0] + math.sin(back) * head_r)
-        hy = int(tip[1] - math.cos(back) * head_r)
-        display.line(tip[0], tip[1], hx, hy)
 
 
 def render(display, weather, stale_marker=None, invert=None):
@@ -85,9 +65,6 @@ def render(display, weather, stale_marker=None, invert=None):
         display.set_pen(fg)
     else:
         display.text(cat, cat_x, 10, scale=_CAT_SCALE)
-
-    # Wind rose arrow between temp and category.
-    _draw_wind_arrow(display, 148, 28, 14, wind_deg)
 
     # Top annotation row: station name left, last-updated right.
     if station_name:

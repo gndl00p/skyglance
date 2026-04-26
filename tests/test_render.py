@@ -117,21 +117,13 @@ def test_plain_category_for_vfr():
     assert not other_big_rects
 
 
-def test_wind_arrow_drawn_when_wind_deg_present():
+def test_only_divider_line_drawn():
     d = FakeDisplay()
     render(d, _WEATHER)
     lines = [args for name, args in d.calls if name == "line"]
-    # At least: the horizontal divider (y1==y2==64) plus the arrow shaft + two arrowhead lines
-    assert len(lines) >= 4
-
-
-def test_no_arrow_when_wind_deg_missing():
-    d = FakeDisplay()
-    w = dict(_WEATHER, wind_deg=None)
-    render(d, w)
-    lines = [args for name, args in d.calls if name == "line"]
-    # Only the divider remains
+    # Just the horizontal divider at y=64.
     assert len(lines) == 1
+    assert lines[0][1] == 64
 
 
 def test_renders_runway_line_when_configured():
