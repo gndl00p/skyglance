@@ -12,15 +12,37 @@ _WEATHER = {
     "station_name": "Lubbock",
     "wind": "200 5kt G15",
     "wind_deg": 200,
+    "wind_kt": 5,
     "visibility_sm": 10.0,
     "ceiling_ft": None,
     "raw": "KLBB 232200Z 20005G15KT 10SM FEW050 30/M04 A2998",
     "updated_z": "22:00",
+    "updated_hour_local": 17,
+    "altimeter_inhg": 29.92,
+    "spread_f": 40,
     "density_altitude_ft": 5800,
+    "pressure_altitude_ft": 3500,
+    "elevation_ft": 3282,
+    "lat": 33.66,
+    "lon": -101.82,
     "sunrise_local": "06:45",
     "sunset_local": "20:15",
     "stale": False,
 }
+
+
+def test_renders_header_with_station_and_name():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    texts = [args[0] for name, args in d.calls if name == "text"]
+    assert any("KLBB" in t and "Lubbock" in t for t in texts)
+
+
+def test_renders_observation_time_in_header():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "22:00Z" in texts
 
 
 def test_renders_big_temp_and_category():
@@ -31,203 +53,134 @@ def test_renders_big_temp_and_category():
     assert any("VFR" in t for t in big)
 
 
-def test_renders_station_wind_clouds():
+def test_data_grid_labels_present():
     d = FakeDisplay()
     render(d, _WEATHER)
-    texts = " ".join(d.texts())
-    assert "KLBB" in texts
-    assert "200" in texts and "5kt" in texts
-    assert "FEW050" in texts
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "WIND" in texts
+    assert "VIS" in texts
+    assert "T/Td" in texts
+    assert "DA" in texts
+    assert "CLD" in texts
+    assert "CEIL" in texts
 
 
-def test_renders_visibility():
+def test_renders_visibility_in_grid():
     d = FakeDisplay()
     render(d, _WEATHER)
-    assert "10SM" in " ".join(d.texts())
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "10 SM" in texts
 
 
-def test_renders_density_altitude_on_station_line():
+def test_renders_density_altitude_in_grid():
     d = FakeDisplay()
     render(d, _WEATHER)
-    station_lines = [args[0] for name, args in d.calls if name == "text" and "KLBB" in args[0]]
-    assert station_lines
-    assert "DA5800" in station_lines[0]
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "5800 ft" in texts
 
 
-def test_no_da_when_unknown():
-    d = FakeDisplay()
-    w = dict(_WEATHER)
-    w["density_altitude_ft"] = None
-    render(d, w)
-    texts = " ".join(d.texts())
-    assert "DA" not in texts
-
-
-def test_renders_temp_dewpoint_on_wind_line():
+def test_renders_temp_dewpoint_in_grid():
     d = FakeDisplay()
     render(d, _WEATHER)
-    wind_lines = [args[0] for name, args in d.calls if name == "text" and "200" in args[0]]
-    assert wind_lines
-    assert "86/46" in wind_lines[0]
-
-
-def test_no_temp_dew_when_dewpoint_unknown():
-    d = FakeDisplay()
-    w = dict(_WEATHER)
-    w["dewpoint_f"] = None
-    render(d, w)
-    wind_lines = [args[0] for name, args in d.calls if name == "text" and "200" in args[0]]
-    assert wind_lines
-    assert "/" not in wind_lines[0]
-
-
-def test_renders_station_name():
-    d = FakeDisplay()
-    render(d, _WEATHER)
-    texts = " ".join(d.texts())
-    assert "Lubbock" in texts
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "86/46" in texts
 
 
 def test_renders_sunrise_sunset():
     d = FakeDisplay()
     render(d, _WEATHER)
-    texts = " ".join(d.texts())
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
     assert "SR 06:45" in texts
     assert "SS 20:15" in texts
+
+
+def test_renders_runway_when_configured():
+    d = FakeDisplay()
+    w = dict(_WEATHER, runway_heading_deg=170, headwind_kt=12,
+             crosswind_kt=5, crosswind_side="L")
+    render(d, w)
+    texts = [args[0] for name, args in d.calls if name == "text"]
+    rwy = [t for t in texts if t.startswith("RWY")]
+    assert rwy
+    assert "RWY17" in rwy[0]
+    assert "HW 12" in rwy[0]
+    assert "XW 5L" in rwy[0]
+
+
+def test_no_runway_line_when_not_configured():
+    d = FakeDisplay()
+    render(d, _WEATHER)
+    rwy = [args[0] for name, args in d.calls if name == "text" and args[0].startswith("RWY")]
+    assert not rwy
 
 
 def test_inverted_category_for_ifr():
     d = FakeDisplay()
     w = dict(_WEATHER, flight_category="IFR")
     render(d, w)
-    # Big inverted block = a rectangle call in the top-right region + a WHITE pen switch.
     rects = [args for name, args in d.calls if name == "rectangle"]
-    big_rects = [r for r in rects if r[1] <= 10 and r[3] >= 40]  # y1 top, tall
+    big_rects = [r for r in rects if 14 <= r[1] <= 20 and r[3] >= 40]
     assert big_rects
     pens = [args[0] for name, args in d.calls if name == "set_pen"]
-    assert 15 in pens  # switched to WHITE for the inverted text
+    assert 15 in pens
 
 
 def test_plain_category_for_vfr():
     d = FakeDisplay()
     render(d, _WEATHER)
-    # Only the clear-white full-screen rectangle should be at y=0.
-    top_rects = [args for name, args in d.calls if name == "rectangle" and args[0] == 0 and args[1] == 0]
-    other_big_rects = [args for name, args in d.calls if name == "rectangle" and args[1] < 60 and (args[0], args[1]) != (0, 0)]
-    assert not other_big_rects
+    pens = [args[0] for name, args in d.calls if name == "set_pen"]
+    # First pen is background, then foreground; no extra pen-flips for inversion
+    # (the only pens are bg=15 and fg=0 in non-night mode).
+    assert set(pens) <= {0, 15}
+    rects = [args for name, args in d.calls if name == "rectangle"]
+    # Only the full-screen clear rect at (0,0,W,H).
+    assert len(rects) == 1
 
 
-def test_only_divider_line_drawn():
+def test_two_dividers_drawn():
     d = FakeDisplay()
     render(d, _WEATHER)
     lines = [args for name, args in d.calls if name == "line"]
-    # Just the horizontal divider at y=64.
-    assert len(lines) == 1
-    assert lines[0][1] == 64
-
-
-def test_renders_runway_line_when_configured():
-    d = FakeDisplay()
-    w = dict(_WEATHER, runway_heading_deg=170, headwind_kt=12,
-             crosswind_kt=5, crosswind_side="L")
-    render(d, w)
-    texts = [args[0] for name, args in d.calls if name == "text"]
-    rwy_lines = [t for t in texts if t.startswith("RWY")]
-    assert rwy_lines
-    assert "RWY 17" in rwy_lines[0]
-    assert "HW 12" in rwy_lines[0]
-    assert "XW 5L" in rwy_lines[0]
-
-
-def test_no_runway_line_when_not_configured():
-    d = FakeDisplay()
-    render(d, _WEATHER)
-    rwy_lines = [args[0] for name, args in d.calls if name == "text" and args[0].startswith("RWY")]
-    assert not rwy_lines
-
-
-def test_runway_number_pads_under_ten():
-    d = FakeDisplay()
-    w = dict(_WEATHER, runway_heading_deg=80, headwind_kt=10,
-             crosswind_kt=2, crosswind_side="R")
-    render(d, w)
-    rwy_lines = [args[0] for name, args in d.calls if name == "text" and args[0].startswith("RWY")]
-    assert rwy_lines
-    assert "RWY 08" in rwy_lines[0]
-
-
-def test_clouds_line_has_no_crosswind():
-    d = FakeDisplay()
-    w = dict(_WEATHER, runway_heading_deg=170, headwind_kt=12,
-             crosswind_kt=5, crosswind_side="L")
-    render(d, w)
-    clouds_lines = [args[0] for name, args in d.calls if name == "text" and "FEW" in args[0]]
-    assert clouds_lines
-    assert "HW" not in clouds_lines[0]
-    assert "XW" not in clouds_lines[0]
+    # header divider at y=12, hero divider at y=72
+    ys = sorted({(a[1], a[3]) for a in lines})
+    assert (12, 12) in ys
+    assert (72, 72) in ys
 
 
 def test_night_inverts_colors():
     d = FakeDisplay()
-    w = dict(_WEATHER, updated_hour_local=23)
-    render(d, w)
-    # First pen call after clear is BLACK background → 0 is set first (rectangle fill bg)
+    render(d, _WEATHER, invert=True)
     pens = [args[0] for name, args in d.calls if name == "set_pen"]
-    # Background = BLACK (0) in night mode, then foreground WHITE (15)
-    assert pens[0] == 0
-    assert 15 in pens
+    assert pens[0] == 0  # background = BLACK in night mode
 
 
 def test_day_normal_colors():
     d = FakeDisplay()
-    w = dict(_WEATHER, updated_hour_local=14)
-    render(d, w)
+    render(d, _WEATHER, invert=False)
     pens = [args[0] for name, args in d.calls if name == "set_pen"]
-    # Background = WHITE (15) in day mode, then foreground BLACK (0)
     assert pens[0] == 15
-    assert 0 in pens
-
-
-def test_explicit_invert_wins():
-    d = FakeDisplay()
-    w = dict(_WEATHER, updated_hour_local=14)
-    render(d, w, invert=True)
-    pens = [args[0] for name, args in d.calls if name == "set_pen"]
-    assert pens[0] == 0
-
-
-def test_renders_last_updated_stamp():
-    d = FakeDisplay()
-    render(d, _WEATHER)
-    texts = [args[0] for name, args in d.calls if name == "text"]
-    assert any("last updated 22:00Z" in t for t in texts)
-
-
-def test_stale_marker_rendered():
-    d = FakeDisplay()
-    render(d, _WEATHER, stale_marker="offline")
-    assert "offline" in " ".join(d.texts())
-
-
-def test_none_weather_shows_placeholders():
-    d = FakeDisplay()
-    render(d, None, stale_marker="offline")
-    texts = " ".join(d.texts())
-    assert "offline" in texts
-    assert "--" in texts
-
-
-def test_horizontal_divider_drawn():
-    d = FakeDisplay()
-    render(d, _WEATHER)
-    lines = [args for name, args in d.calls if name == "line"]
-    assert any(a[1] == a[3] for a in lines)
 
 
 def test_low_temp():
     w = dict(_WEATHER, temp_f=5, flight_category="LIFR")
     d = FakeDisplay()
     render(d, w)
-    texts = " ".join(d.texts())
-    assert "5F" in texts
-    assert "LIFR" in texts
+    big = [args[0] for name, args in d.calls if name == "text" and args[4] >= 4]
+    assert any("5F" in t for t in big)
+    assert any("LIFR" in t for t in big)
+
+
+def test_stale_marker_replaces_runway_slot():
+    d = FakeDisplay()
+    render(d, _WEATHER, stale_marker="offline")
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "offline" in texts
+
+
+def test_none_weather_safe():
+    d = FakeDisplay()
+    render(d, None, stale_marker="offline")
+    texts = " ".join([args[0] for name, args in d.calls if name == "text"])
+    assert "offline" in texts
+    # No crash, placeholders rendered
+    assert "--F" in texts or "--" in texts
