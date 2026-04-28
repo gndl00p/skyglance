@@ -4,6 +4,19 @@ WIDTH = 296
 HEIGHT = 128
 
 _CAT_CHAR_W = 30  # bitmap8 char at scale 5
+_CHAR_W = 6  # bitmap8 base char width
+
+
+def _fits(text, x, scale):
+    return x + len(text) * _CHAR_W * scale <= WIDTH
+
+
+def _pick(candidates, x, scale):
+    """Pick longest variant that fits within WIDTH; fall back to shortest."""
+    for line in candidates:
+        if _fits(line, x, scale):
+            return line
+    return candidates[-1]
 
 
 def render(display, weather, stale_marker=None, invert=None):
@@ -58,35 +71,51 @@ def render(display, weather, stale_marker=None, invert=None):
     wind = w.get("wind") or "--"
     vis = w.get("visibility_sm")
     da = w.get("density_altitude_ft")
-    dewp = w.get("dewpoint_f")
     sky = w.get("summary") or "--"
     ceiling = w.get("ceiling_ft")
 
-    # Row 1: wind + temp/dew pair
-    line1 = "WIND {0}".format(wind)
-    if temp is not None and dewp is not None:
-        line1 += "  {0}/{1}".format(int(temp), int(dewp))
-    display.text(line1, 4, 66, scale=2)
-
-    # Row 2: clouds + visibility
-    line2 = "CLD {0}".format(sky)
+    # Row 1: wind + visibility — shrink progressively if too wide.
     if vis is not None:
         v = int(vis) if vis == int(vis) else vis
-        line2 += "  vis {0}SM".format(v)
-    display.text(line2, 4, 84, scale=2)
+        vs = "{0}SM".format(v)
+        row1 = _pick([
+            "WIND {0}  vis {1}".format(wind, vs),
+            "WIND {0}  {1}".format(wind, vs),
+            "{0}  {1}".format(wind, vs),
+            "{0} {1}".format(wind, vs),
+        ], 4, 2)
+    else:
+        row1 = _pick([
+            "WIND {0}".format(wind),
+            "{0}".format(wind),
+        ], 4, 2)
+    display.text(row1, 4, 66, scale=2)
 
-    # Row 3: aviation pressure block — altimeter, DA, ceiling.
+    # Row 2: clouds — drop label if multi-layer summary too wide.
+    row2 = _pick([
+        "CLD {0}".format(sky),
+        "{0}".format(sky),
+    ], 4, 2)
+    display.text(row2, 4, 84, scale=2)
+
+    # Row 3: pressure block — altimeter, DA, ceiling. Shrink right-to-left.
     altim = w.get("altimeter_inhg")
-    parts3 = []
-    if altim is not None:
-        parts3.append("ALT {0:.2f}".format(altim))
-    if da is not None:
-        parts3.append("DA {0}".format(da))
-    if ceiling is not None:
-        parts3.append("CEIL {0}".format(ceiling))
-    if not parts3:
-        parts3.append("---")
-    display.text("  ".join(parts3), 4, 102, scale=2)
+    alt_part = "ALT {0:.2f}".format(altim) if altim is not None else None
+    da_full = "DA {0}".format(da) if da is not None else None
+    da_tight = "DA{0}".format(da) if da is not None else None
+    ceil_full = "CEIL {0}".format(ceiling) if ceiling is not None else None
+    ceil_tight = "C{0}".format(ceiling) if ceiling is not None else None
+
+    def _join(parts, sep):
+        return sep.join(p for p in parts if p)
+
+    candidates = []
+    candidates.append(_join([alt_part, da_full, ceil_full], "  "))
+    candidates.append(_join([alt_part, da_full, ceil_full], " "))
+    candidates.append(_join([alt_part, da_tight, ceil_tight], " "))
+    candidates.append(_join([alt_part, da_tight], " "))  # drop ceiling last resort
+    row3 = _pick([c for c in candidates if c] or ["---"], 4, 2)
+    display.text(row3, 4, 102, scale=2)
 
     if stale_marker:
         display.text(stale_marker, 4, 120, scale=1)

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1] — 2026-04-28
+
+Body-row layout fix.
+
+### Fixed
+- Visibility number rendering off-screen right when 3 cloud layers
+  reported. Vis now sits on the WIND row, clouds get their own row.
+
+### Changed
+- Auto-shrink in body rows: each row picks the longest variant that
+  fits 296 px. Worst-case (heavy gust + 3-layer sky + 5-digit DA +
+  4-digit ceiling) collapses labels (`CEIL 8000` → `C8000`,
+  `DA 5800` → `DA5800`) before clipping.
+
 ## [0.3.0] — 2026-04-26
 
 Visual redesign + a stack of new aviation features.

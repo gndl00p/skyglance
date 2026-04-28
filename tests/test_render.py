@@ -53,24 +53,24 @@ def test_renders_big_temp_and_category():
     assert any("VFR" in t for t in big)
 
 
-def test_body_row_wind_and_tempdew_at_scale_2():
+def test_body_row_wind_and_vis_at_scale_2():
     d = FakeDisplay()
     render(d, _WEATHER)
     body = [args for name, args in d.calls if name == "text" and args[4] == 2]
     wind_lines = [t for t, *_ in body if "WIND" in t]
     assert wind_lines
     assert "200" in wind_lines[0]
-    assert "91/46" in wind_lines[0]
+    assert "10SM" in wind_lines[0]
 
 
-def test_body_row_clouds_and_vis_at_scale_2():
+def test_body_row_clouds_at_scale_2():
     d = FakeDisplay()
     render(d, _WEATHER)
     body = [args for name, args in d.calls if name == "text" and args[4] == 2]
     cld_lines = [t for t, *_ in body if t.startswith("CLD")]
     assert cld_lines
     assert "FEW050" in cld_lines[0]
-    assert "10SM" in cld_lines[0]
+    assert "SM" not in cld_lines[0]
 
 
 def test_body_row_alt_da_at_scale_2():
@@ -90,7 +90,9 @@ def test_body_row_includes_ceiling_when_present():
     body = [args[0] for name, args in d.calls if name == "text" and args[4] == 2]
     alt_lines = [t for t in body if t.startswith("ALT")]
     assert alt_lines
-    assert "CEIL 8000" in alt_lines[0]
+    # Auto-shrink may collapse "CEIL 8000" → "C8000" to fit width.
+    assert "8000" in alt_lines[0]
+    assert "CEIL 8000" in alt_lines[0] or "C8000" in alt_lines[0]
 
 
 def test_body_row_omits_da_when_unknown():
@@ -104,14 +106,14 @@ def test_body_row_omits_da_when_unknown():
     assert "29.92" in alt_lines[0]
 
 
-def test_no_temp_dew_when_dewpoint_missing():
+def test_no_temp_dew_on_wind_row():
     d = FakeDisplay()
-    w = dict(_WEATHER, dewpoint_f=None)
-    render(d, w)
+    render(d, _WEATHER)
     body = [args[0] for name, args in d.calls if name == "text" and args[4] == 2]
     wind_lines = [t for t in body if "WIND" in t]
     assert wind_lines
     assert "/" not in wind_lines[0]
+    assert "91/46" not in wind_lines[0]
 
 
 def test_no_runway_anywhere_on_main():
@@ -195,3 +197,36 @@ def test_none_weather_safe():
     texts = " ".join(args[0] for name, args in d.calls if name == "text")
     assert "offline" in texts
     assert "--F" in texts or "--" in texts
+
+
+def _row_fits(text, scale=2, x=4, width=296, char_w=6):
+    return x + len(text) * char_w * scale <= width
+
+
+def test_body_rows_never_overflow_with_three_cloud_layers():
+    # Worst-case: heavy gust wind + 3 cloud layers + ceiling.
+    w = dict(
+        _WEATHER,
+        wind="360 25kt G45",
+        summary="FEW050 BKN080 OVC150",
+        visibility_sm=10.0,
+        ceiling_ft=8000,
+        density_altitude_ft=12500,
+    )
+    d = FakeDisplay()
+    render(d, w)
+    body = [args[0] for name, args in d.calls if name == "text" and args[4] == 2]
+    for line in body:
+        assert _row_fits(line), "row overflows 296px: {0!r}".format(line)
+
+
+def test_visibility_renders_with_three_cloud_layers():
+    w = dict(_WEATHER, summary="FEW050 BKN080 OVC150", visibility_sm=10.0)
+    d = FakeDisplay()
+    render(d, w)
+    body = [args[0] for name, args in d.calls if name == "text" and args[4] == 2]
+    wind_lines = [t for t in body if "WIND" in t or t.startswith("360")]
+    assert any("10SM" in t for t in body)
+    cld_lines = [t for t in body if "FEW050" in t]
+    assert cld_lines
+    assert "10SM" not in cld_lines[0]
